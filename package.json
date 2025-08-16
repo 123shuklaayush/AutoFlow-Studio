@@ -1,0 +1,51 @@
+{
+  "name": "autoflow-studio",
+  "version": "1.0.0",
+  "description": "AI-Enhanced Browser Automation Platform with Neural Selector Healing & Real-time Decision Intelligence",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:extension\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:extension": "cd chrome-extension && npm run dev",
+    "dev:automation": "cd automation && npm run dev",
+    "build": "npm run build:extension && npm run build:backend",
+    "build:extension": "cd chrome-extension && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "test": "npm run test:backend && npm run test:automation",
+    "test:backend": "cd backend && npm test",
+    "test:automation": "cd automation && npm test",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "setup": "npm install && cd chrome-extension && npm install && cd ../backend && npm install && cd ../automation && npm install"
+  },
+  "keywords": [
+    "automation",
+    "AI",
+    "browser-automation",
+    "workflow",
+    "chrome-extension",
+    "playwright",
+    "typescript"
+  ],
+  "author": "Ayush Shukla",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/123shuklaayush/AutoFlow-Studio.git"
+  },
+  "workspaces": [
+    "chrome-extension",
+    "backend",
+    "automation"
+  ],
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
+  }
+}
