@@ -154,9 +154,9 @@ class AutoFlowContentScript {
           console.warn('AutoFlow: Unknown message type:', message.type);
           sendResponse({ error: 'Unknown message type' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('AutoFlow: Error handling message:', error);
-      sendResponse({ error: error.message });
+      sendResponse({ error: error?.message || 'Unknown error' });
     }
   }
 
@@ -504,7 +504,7 @@ class AutoFlowContentScript {
    * @private
    */
   private generateStepTags(element: Element, action: ActionType): string[] {
-    const tags = [action];
+    const tags: string[] = [action];
     
     // Add element-specific tags
     if (element.tagName) {

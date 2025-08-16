@@ -396,10 +396,10 @@ class AutoFlowBackground {
       }
 
       // Capture visible tab
-      const screenshot = await chrome.tabs.captureVisibleTab(
-        undefined, // Current window
-        { format: 'png', quality: 90 }
-      );
+      const screenshot = await chrome.tabs.captureVisibleTab({
+        format: 'png',
+        quality: 90
+      });
 
       return screenshot;
 

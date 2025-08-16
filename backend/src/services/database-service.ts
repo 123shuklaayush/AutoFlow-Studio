@@ -188,7 +188,7 @@ export class DatabaseService {
       }
 
       const snapshot = await query.get();
-      const documents = snapshot.docs.map(doc => ({
+      const documents = snapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...doc.data()
       }));

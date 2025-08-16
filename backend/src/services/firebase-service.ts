@@ -80,9 +80,9 @@ class FirebaseService {
       this.initialized = true;
       logger.info('✅ Firebase Admin SDK initialized successfully');
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error('❌ Failed to initialize Firebase Admin SDK:', error);
-      throw new Error(`Firebase initialization failed: ${error.message}`);
+      throw new Error(`Firebase initialization failed: ${error?.message || 'Unknown error'}`);
     }
   }
 

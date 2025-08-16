@@ -76,7 +76,7 @@ class AutoFlowServer {
         ].filter(Boolean);
 
         if (!origin || allowedOrigins.some(pattern => 
-          typeof pattern === 'string' ? pattern === origin : pattern.test(origin)
+          typeof pattern === 'string' ? pattern === origin : (pattern as RegExp).test(origin)
         )) {
           callback(null, true);
         } else {
@@ -248,7 +248,7 @@ class AutoFlowServer {
     });
 
     process.on('unhandledRejection', (reason, promise) => {
-      logger.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+      logger.error('🚨 Unhandled Rejection at promise:', { promise, reason });
       gracefulShutdown('unhandledRejection');
     });
   }
