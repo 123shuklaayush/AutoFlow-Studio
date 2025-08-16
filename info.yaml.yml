@@ -1,0 +1,15 @@
+For each IRNode:
+  1) Resolve element:
+    - try primary selector → if not visible, scroll-until-visible
+    - if fail → try alternates (text/role/attrs)
+    - if fail → visual_match(thumbnail) → compute new selector (patch)
+  2) Perform action:
+    - click / fill (resolve inputs: static vars or n8n secrets)
+    - downloads: intercept, wait for file
+  3) Verify:
+    - URL change / element presence / file exists / screenshot diff threshold
+  4) Capture proof:
+    - thumbnail + short log; upload to /proofs
+  5) Detect interrupts:
+    - CAPTCHA widget? → pause, notify, resume on user signal
+    - OTP field? → request via WhatsApp → fill → continue
