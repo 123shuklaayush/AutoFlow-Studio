@@ -5,10 +5,16 @@
  * and screenshot capture. Follows SOLID principles for maintainable code.
  */
 
-import { TraceStep, ActionType, ElementSelector, InputData, BoundingBox } from '@shared/types/core';
-import { SelectorExtractor } from '../utils/selector-extractor';
-import { ScreenshotCapture } from '../utils/screenshot-capture';
-import { EventRecorder } from '../utils/event-recorder';
+import {
+  TraceStep,
+  ActionType,
+  ElementSelector,
+  InputData,
+  BoundingBox,
+} from "@shared/types/core";
+import { SelectorExtractor } from "../utils/selector-extractor";
+import { ScreenshotCapture } from "../utils/screenshot-capture";
+import { EventRecorder } from "../utils/event-recorder";
 
 /**
  * Main content script class following Single Responsibility Principle
@@ -29,7 +35,7 @@ class AutoFlowContentScript {
     this.selectorExtractor = new SelectorExtractor();
     this.screenshotCapture = new ScreenshotCapture();
     this.eventRecorder = new EventRecorder();
-    
+
     this.setupEventListeners();
     this.setupMessageHandlers();
     this.initializeRecordingState();
@@ -41,37 +47,44 @@ class AutoFlowContentScript {
    */
   private setupEventListeners(): void {
     // Click events
-    document.addEventListener('click', this.handleClickEvent.bind(this), {
+    document.addEventListener("click", this.handleClickEvent.bind(this), {
       capture: true,
-      passive: true
+      passive: true,
     });
 
     // Input events (typing, form filling)
-    document.addEventListener('input', this.handleInputEvent.bind(this), {
+    document.addEventListener("input", this.handleInputEvent.bind(this), {
       capture: true,
-      passive: true
+      passive: true,
     });
 
     // Navigation events
-    window.addEventListener('beforeunload', this.handleNavigationEvent.bind(this));
+    window.addEventListener(
+      "beforeunload",
+      this.handleNavigationEvent.bind(this)
+    );
 
     // Scroll events (throttled for performance)
     let scrollTimeout: NodeJS.Timeout;
-    document.addEventListener('scroll', () => {
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(this.handleScrollEvent.bind(this), 150);
-    }, { passive: true });
+    document.addEventListener(
+      "scroll",
+      () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(this.handleScrollEvent.bind(this), 150);
+      },
+      { passive: true }
+    );
 
     // Form submission events
-    document.addEventListener('submit', this.handleSubmitEvent.bind(this), {
+    document.addEventListener("submit", this.handleSubmitEvent.bind(this), {
       capture: true,
-      passive: true
+      passive: true,
     });
 
     // Focus events for form field detection
-    document.addEventListener('focus', this.handleFocusEvent.bind(this), {
+    document.addEventListener("focus", this.handleFocusEvent.bind(this), {
       capture: true,
-      passive: true
+      passive: true,
     });
   }
 
@@ -80,14 +93,16 @@ class AutoFlowContentScript {
    * @private
    */
   private setupMessageHandlers(): void {
-    chrome.runtime.onMessage.addListener((
-      message: any,
-      sender: chrome.runtime.MessageSender,
-      sendResponse: (response?: any) => void
-    ) => {
-      this.handleMessage(message, sender, sendResponse);
-      return true; // Keep message channel open for async responses
-    });
+    chrome.runtime.onMessage.addListener(
+      (
+        message: any,
+        sender: chrome.runtime.MessageSender,
+        sendResponse: (response?: any) => void
+      ) => {
+        this.handleMessage(message, sender, sendResponse);
+        return true; // Keep message channel open for async responses
+      }
+    );
   }
 
   /**
@@ -96,7 +111,10 @@ class AutoFlowContentScript {
    */
   private async initializeRecordingState(): Promise<void> {
     try {
-      const result = await chrome.storage.local.get(['isRecording', 'recordingSessionId']);
+      const result = await chrome.storage.local.get([
+        "isRecording",
+        "recordingSessionId",
+      ]);
       this.isRecording = result.isRecording || false;
       this.recordingSessionId = result.recordingSessionId || null;
 
@@ -104,7 +122,7 @@ class AutoFlowContentScript {
         this.showRecordingIndicator();
       }
     } catch (error) {
-      console.error('AutoFlow: Failed to initialize recording state:', error);
+      console.error("AutoFlow: Failed to initialize recording state:", error);
     }
   }
 
@@ -122,41 +140,64 @@ class AutoFlowContentScript {
   ): Promise<void> {
     try {
       switch (message.type) {
-        case 'START_RECORDING':
+        case "START_RECORDING":
           await this.startRecording(message.sessionId);
           sendResponse({ success: true });
           break;
 
-        case 'STOP_RECORDING':
+        case "STOP_RECORDING":
           await this.stopRecording();
           sendResponse({ success: true });
           break;
 
-        case 'GET_RECORDING_STATE':
+        case "GET_RECORDING_STATE":
           sendResponse({
             isRecording: this.isRecording,
             sessionId: this.recordingSessionId,
-            stepCount: this.stepCounter
+            stepCount: this.stepCounter,
           });
           break;
 
-        case 'CAPTURE_SCREENSHOT':
+        case "CAPTURE_SCREENSHOT":
           const screenshot = await this.screenshotCapture.captureVisible();
           sendResponse({ screenshot });
           break;
 
-        case 'EXTRACT_SELECTORS':
-          const selectors = this.selectorExtractor.extractSelectors(message.element);
+        case "EXTRACT_SELECTORS":
+          const selectors = this.selectorExtractor.extractSelectors(
+            message.element
+          );
           sendResponse({ selectors });
           break;
 
+        // Background uses this to detect if sidebar script is present
+        case "SIDEBAR_STATUS":
+          // Forward to sidebar if present; otherwise report not injected
+          try {
+            chrome.runtime.sendMessage({ type: "SIDEBAR_STATUS" }, (resp) => {
+              if (resp && typeof resp.injected !== "undefined") {
+                sendResponse(resp);
+              } else {
+                sendResponse({ injected: false, sidebarActive: false });
+              }
+            });
+          } catch {
+            sendResponse({ injected: false, sidebarActive: false });
+          }
+          break;
+
+        case "HIDE_RECORDING_INDICATOR":
+          this.hideRecordingIndicator();
+          sendResponse({ success: true });
+          break;
+
         default:
-          console.warn('AutoFlow: Unknown message type:', message.type);
-          sendResponse({ error: 'Unknown message type' });
+          // Silently ignore unknown message types to avoid console noise
+          break;
       }
     } catch (error: any) {
-      console.error('AutoFlow: Error handling message:', error);
-      sendResponse({ error: error?.message || 'Unknown error' });
+      console.error("AutoFlow: Error handling message:", error);
+      sendResponse({ error: error?.message || "Unknown error" });
     }
   }
 
@@ -172,7 +213,7 @@ class AutoFlowContentScript {
     // Store recording state
     await chrome.storage.local.set({
       isRecording: true,
-      recordingSessionId: sessionId
+      recordingSessionId: sessionId,
     });
 
     // Show visual indicator
@@ -181,7 +222,7 @@ class AutoFlowContentScript {
     // Record initial page state
     await this.recordPageLoad();
 
-    console.log('AutoFlow: Recording started for session:', sessionId);
+    console.log("AutoFlow: Recording started for session:", sessionId);
   }
 
   /**
@@ -193,12 +234,12 @@ class AutoFlowContentScript {
     this.recordingSessionId = null;
 
     // Clear recording state
-    await chrome.storage.local.remove(['isRecording', 'recordingSessionId']);
+    await chrome.storage.local.remove(["isRecording", "recordingSessionId"]);
 
     // Hide visual indicator
     this.hideRecordingIndicator();
 
-    console.log('AutoFlow: Recording stopped for session:', sessionId);
+    console.log("AutoFlow: Recording stopped for session:", sessionId);
   }
 
   /**
@@ -210,15 +251,15 @@ class AutoFlowContentScript {
     if (!this.isRecording || !event.target) return;
 
     const element = event.target as Element;
-    
+
     // Skip clicks on the recording indicator
-    if (element.closest('.autoflow-recording-indicator')) return;
+    if (element.closest(".autoflow-recording-indicator")) return;
 
     try {
-      const step = await this.createTraceStep(element, 'click', event);
+      const step = await this.createTraceStep(element, "click", event);
       await this.saveTraceStep(step);
     } catch (error) {
-      console.error('AutoFlow: Error recording click event:', error);
+      console.error("AutoFlow: Error recording click event:", error);
     }
   }
 
@@ -231,16 +272,23 @@ class AutoFlowContentScript {
     if (!this.isRecording || !event.target) return;
 
     const element = event.target as HTMLInputElement | HTMLTextAreaElement;
-    
+
     // Only record certain input types
-    const recordableTypes = ['text', 'email', 'password', 'search', 'tel', 'url'];
+    const recordableTypes = [
+      "text",
+      "email",
+      "password",
+      "search",
+      "tel",
+      "url",
+    ];
     if (element.type && !recordableTypes.includes(element.type)) return;
 
     try {
-      const step = await this.createTraceStep(element, 'input', event);
+      const step = await this.createTraceStep(element, "input", event);
       await this.saveTraceStep(step);
     } catch (error) {
-      console.error('AutoFlow: Error recording input event:', error);
+      console.error("AutoFlow: Error recording input event:", error);
     }
   }
 
@@ -256,24 +304,24 @@ class AutoFlowContentScript {
         id: this.generateStepId(),
         tabId: await this.getCurrentTabId(),
         url: window.location.href,
-        action: 'scroll',
+        action: "scroll",
         selectors: [],
         scrollPosition: {
           x: window.scrollX,
           y: window.scrollY,
           pageHeight: document.body.scrollHeight,
-          pageWidth: document.body.scrollWidth
+          pageWidth: document.body.scrollWidth,
         },
         timestamp: Date.now(),
         metadata: {
           description: `Scrolled to position (${window.scrollX}, ${window.scrollY})`,
-          tags: ['scroll']
-        }
+          tags: ["scroll"],
+        },
       };
 
       await this.saveTraceStep(scrollStep);
     } catch (error) {
-      console.error('AutoFlow: Error recording scroll event:', error);
+      console.error("AutoFlow: Error recording scroll event:", error);
     }
   }
 
@@ -288,17 +336,17 @@ class AutoFlowContentScript {
     const form = event.target as HTMLFormElement;
 
     try {
-      const step = await this.createTraceStep(form, 'click', event);
+      const step = await this.createTraceStep(form, "click", event);
       step.metadata = {
         ...step.metadata,
-        description: 'Form submission',
-        tags: ['form', 'submit'],
-        critical: true
+        description: "Form submission",
+        tags: ["form", "submit"],
+        critical: true,
       };
 
       await this.saveTraceStep(step);
     } catch (error) {
-      console.error('AutoFlow: Error recording form submission:', error);
+      console.error("AutoFlow: Error recording form submission:", error);
     }
   }
 
@@ -314,18 +362,18 @@ class AutoFlowContentScript {
         id: this.generateStepId(),
         tabId: await this.getCurrentTabId(),
         url: window.location.href,
-        action: 'navigate',
+        action: "navigate",
         selectors: [],
         timestamp: Date.now(),
         metadata: {
           description: `Navigating away from ${window.location.href}`,
-          tags: ['navigation']
-        }
+          tags: ["navigation"],
+        },
       };
 
       await this.saveTraceStep(step);
     } catch (error) {
-      console.error('AutoFlow: Error recording navigation event:', error);
+      console.error("AutoFlow: Error recording navigation event:", error);
     }
   }
 
@@ -338,13 +386,13 @@ class AutoFlowContentScript {
     if (!this.isRecording || !event.target) return;
 
     const element = event.target as Element;
-    
+
     // Only record focus on interactive elements
-    const interactiveElements = ['input', 'textarea', 'select', 'button'];
+    const interactiveElements = ["input", "textarea", "select", "button"];
     if (!interactiveElements.includes(element.tagName.toLowerCase())) return;
 
     // This helps with form field detection and can be used for better selectors
-    console.log('AutoFlow: Focus detected on:', element);
+    console.log("AutoFlow: Focus detected on:", element);
   }
 
   /**
@@ -357,15 +405,15 @@ class AutoFlowContentScript {
         id: this.generateStepId(),
         tabId: await this.getCurrentTabId(),
         url: window.location.href,
-        action: 'navigate',
+        action: "navigate",
         selectors: [],
         domHash: await this.generateDOMHash(),
         timestamp: Date.now(),
         metadata: {
           description: `Page loaded: ${document.title}`,
-          tags: ['page_load', 'navigation'],
-          critical: true
-        }
+          tags: ["page_load", "navigation"],
+          critical: true,
+        },
       };
 
       // Capture screenshot of initial page state
@@ -376,7 +424,7 @@ class AutoFlowContentScript {
 
       await this.saveTraceStep(step);
     } catch (error) {
-      console.error('AutoFlow: Error recording page load:', error);
+      console.error("AutoFlow: Error recording page load:", error);
     }
   }
 
@@ -406,18 +454,21 @@ class AutoFlowContentScript {
         x: window.scrollX,
         y: window.scrollY,
         pageHeight: document.body.scrollHeight,
-        pageWidth: document.body.scrollWidth
+        pageWidth: document.body.scrollWidth,
       },
       domHash: await this.generateDOMHash(),
       timestamp: Date.now(),
       metadata: {
         description: this.generateStepDescription(element, action),
-        tags: this.generateStepTags(element, action)
-      }
+        tags: this.generateStepTags(element, action),
+      },
     };
 
     // Add input data for input events
-    if (action === 'input' && (element as HTMLInputElement).value !== undefined) {
+    if (
+      action === "input" &&
+      (element as HTMLInputElement).value !== undefined
+    ) {
       step.inputData = this.extractInputData(element as HTMLInputElement);
     }
 
@@ -440,13 +491,13 @@ class AutoFlowContentScript {
     const inputData: InputData = {
       value: element.value,
       type: this.mapInputType(element.type),
-      source: 'static',
-      sensitive: element.type === 'password'
+      source: "static",
+      sensitive: element.type === "password",
     };
 
     // Mask sensitive data
     if (inputData.sensitive) {
-      inputData.value = '[MASKED]';
+      inputData.value = "[MASKED]";
     }
 
     return inputData;
@@ -460,18 +511,18 @@ class AutoFlowContentScript {
    */
   private mapInputType(htmlType: string): any {
     const typeMap: { [key: string]: string } = {
-      'text': 'text',
-      'email': 'email',
-      'password': 'password',
-      'number': 'number',
-      'tel': 'text',
-      'url': 'text',
-      'search': 'text',
-      'date': 'date',
-      'file': 'file'
+      text: "text",
+      email: "email",
+      password: "password",
+      number: "number",
+      tel: "text",
+      url: "text",
+      search: "text",
+      date: "date",
+      file: "file",
     };
 
-    return typeMap[htmlType] || 'text';
+    return typeMap[htmlType] || "text";
   }
 
   /**
@@ -481,16 +532,19 @@ class AutoFlowContentScript {
    * @returns Human-readable description
    * @private
    */
-  private generateStepDescription(element: Element, action: ActionType): string {
-    const elementText = element.textContent?.trim().slice(0, 50) || '';
+  private generateStepDescription(
+    element: Element,
+    action: ActionType
+  ): string {
+    const elementText = element.textContent?.trim().slice(0, 50) || "";
     const tagName = element.tagName.toLowerCase();
-    
+
     switch (action) {
-      case 'click':
-        return `Clicked ${tagName}${elementText ? ': "' + elementText + '"' : ''}`;
-      case 'input':
+      case "click":
+        return `Clicked ${tagName}${elementText ? ': "' + elementText + '"' : ""}`;
+      case "input":
         const placeholder = (element as HTMLInputElement).placeholder;
-        return `Entered text in ${tagName}${placeholder ? ' (' + placeholder + ')' : ''}`;
+        return `Entered text in ${tagName}${placeholder ? " (" + placeholder + ")" : ""}`;
       default:
         return `Performed ${action} on ${tagName}`;
     }
@@ -505,23 +559,23 @@ class AutoFlowContentScript {
    */
   private generateStepTags(element: Element, action: ActionType): string[] {
     const tags: string[] = [action];
-    
+
     // Add element-specific tags
     if (element.tagName) {
       tags.push(element.tagName.toLowerCase());
     }
-    
+
     if (element.classList.length > 0) {
-      tags.push('has-class');
+      tags.push("has-class");
     }
-    
+
     if (element.id) {
-      tags.push('has-id');
+      tags.push("has-id");
     }
 
     // Add form-related tags
-    if (element.closest('form')) {
-      tags.push('form-element');
+    if (element.closest("form")) {
+      tags.push("form-element");
     }
 
     return tags;
@@ -536,16 +590,15 @@ class AutoFlowContentScript {
     try {
       // Send to background script for processing and storage
       await chrome.runtime.sendMessage({
-        type: 'SAVE_TRACE_STEP',
+        type: "SAVE_TRACE_STEP",
         sessionId: this.recordingSessionId,
-        step
+        step,
       });
 
       this.stepCounter++;
-      console.log('AutoFlow: Step recorded:', step);
-
+      console.log("AutoFlow: Step recorded:", step);
     } catch (error) {
-      console.error('AutoFlow: Error saving trace step:', error);
+      console.error("AutoFlow: Error saving trace step:", error);
     }
   }
 
@@ -557,9 +610,9 @@ class AutoFlowContentScript {
    */
   private async saveScreenshot(screenshot: string): Promise<string> {
     const screenshotId = `screenshot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     await chrome.storage.local.set({
-      [`screenshot_${screenshotId}`]: screenshot
+      [`screenshot_${screenshotId}`]: screenshot,
     });
 
     return screenshotId;
@@ -581,7 +634,7 @@ class AutoFlowContentScript {
    */
   private async getCurrentTabId(): Promise<number> {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB' }, (response) => {
+      chrome.runtime.sendMessage({ type: "GET_CURRENT_TAB" }, (response) => {
         resolve(response?.tabId || 0);
       });
     });
@@ -597,17 +650,17 @@ class AutoFlowContentScript {
     const bodyHTML = document.body.innerHTML.slice(0, 1000); // First 1KB
     const title = document.title;
     const url = window.location.href;
-    
+
     const content = `${title}|${url}|${bodyHTML}`;
-    
+
     // Simple hash function (for production, use crypto API)
     let hash = 0;
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    
+
     return hash.toString(16);
   }
 
@@ -619,8 +672,8 @@ class AutoFlowContentScript {
     // Remove existing indicator if present
     this.hideRecordingIndicator();
 
-    const indicator = document.createElement('div');
-    indicator.className = 'autoflow-recording-indicator';
+    const indicator = document.createElement("div");
+    indicator.className = "autoflow-recording-indicator";
     indicator.innerHTML = `
       <div style="
         position: fixed;
@@ -651,7 +704,7 @@ class AutoFlowContentScript {
     `;
 
     // Add animation styles
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = `
       @keyframes pulse {
         0%, 100% { opacity: 1; }
@@ -659,7 +712,7 @@ class AutoFlowContentScript {
       }
     `;
     document.head.appendChild(style);
-    
+
     document.body.appendChild(indicator);
   }
 
@@ -668,7 +721,7 @@ class AutoFlowContentScript {
    * @private
    */
   private hideRecordingIndicator(): void {
-    const indicator = document.querySelector('.autoflow-recording-indicator');
+    const indicator = document.querySelector(".autoflow-recording-indicator");
     if (indicator) {
       indicator.remove();
     }
@@ -676,8 +729,8 @@ class AutoFlowContentScript {
 }
 
 // Initialize the content script when the page loads
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
     new AutoFlowContentScript();
   });
 } else {

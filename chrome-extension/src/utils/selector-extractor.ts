@@ -5,7 +5,7 @@
  * Implements Interface Segregation Principle with focused selector strategies.
  */
 
-import { ElementSelector, BoundingBox } from '@shared/types/core';
+import { ElementSelector, BoundingBox } from "@shared/types/core";
 
 /**
  * Interface for different selector extraction strategies
@@ -37,7 +37,12 @@ class CssSelectorStrategy implements SelectorStrategy {
       }
 
       // Try data attributes (good for automation)
-      const dataAttrs = ['data-testid', 'data-test', 'data-cy', 'data-automation'];
+      const dataAttrs = [
+        "data-testid",
+        "data-test",
+        "data-cy",
+        "data-automation",
+      ];
       for (const attr of dataAttrs) {
         const value = element.getAttribute(attr);
         if (value) {
@@ -50,7 +55,7 @@ class CssSelectorStrategy implements SelectorStrategy {
 
       // Try class-based selector
       if (element.classList.length > 0) {
-        const classSelector = `.${Array.from(element.classList).join('.')}`;
+        const classSelector = `.${Array.from(element.classList).join(".")}`;
         if (this.isUnique(classSelector)) {
           return classSelector;
         }
@@ -64,9 +69,8 @@ class CssSelectorStrategy implements SelectorStrategy {
 
       // Fall back to nth-child selector
       return this.generateNthChildSelector(element);
-
     } catch (error) {
-      console.warn('CssSelectorStrategy: Error extracting selector:', error);
+      console.warn("CssSelectorStrategy: Error extracting selector:", error);
       return null;
     }
   }
@@ -118,17 +122,26 @@ class CssSelectorStrategy implements SelectorStrategy {
     const attributes: string[] = [];
 
     // Check useful attributes
-    const usefulAttrs = ['name', 'type', 'value', 'placeholder', 'title', 'role', 'aria-label'];
-    
+    const usefulAttrs = [
+      "name",
+      "type",
+      "value",
+      "placeholder",
+      "title",
+      "role",
+      "aria-label",
+    ];
+
     for (const attr of usefulAttrs) {
       const value = element.getAttribute(attr);
-      if (value && value.length < 50) { // Avoid very long values
+      if (value && value.length < 50) {
+        // Avoid very long values
         attributes.push(`[${attr}="${value}"]`);
       }
     }
 
     if (attributes.length > 0) {
-      return `${tag}${attributes.join('')}`;
+      return `${tag}${attributes.join("")}`;
     }
 
     return null;
@@ -146,21 +159,21 @@ class CssSelectorStrategy implements SelectorStrategy {
 
     while (current && current.nodeType === Node.ELEMENT_NODE) {
       let selector = current.tagName.toLowerCase();
-      
+
       if (current.parentElement) {
         const siblings = Array.from(current.parentElement.children);
         const index = siblings.indexOf(current) + 1;
         selector += `:nth-child(${index})`;
       }
-      
+
       path.unshift(selector);
       current = current.parentElement as Element;
-      
+
       // Limit depth to avoid very long selectors
       if (path.length >= 5) break;
     }
 
-    return path.join(' > ');
+    return path.join(" > ");
   }
 }
 
@@ -180,15 +193,17 @@ class XPathSelectorStrategy implements SelectorStrategy {
 
       while (current && current.nodeType === Node.ELEMENT_NODE) {
         const tagName = current.tagName.toLowerCase();
-        
+
         if (current.id) {
           // Use ID for shorter XPath
           path.unshift(`//${tagName}[@id='${current.id}']`);
           break;
         } else if (current.parentElement) {
           const siblings = Array.from(current.parentElement.children);
-          const sameTagSiblings = siblings.filter(el => el.tagName === current.tagName);
-          
+          const sameTagSiblings = siblings.filter(
+            (el) => el.tagName === current.tagName
+          );
+
           if (sameTagSiblings.length === 1) {
             path.unshift(`/${tagName}`);
           } else {
@@ -200,15 +215,14 @@ class XPathSelectorStrategy implements SelectorStrategy {
         }
 
         current = current.parentElement as Element;
-        
+
         // Limit depth
         if (path.length >= 6) break;
       }
 
-      return path.length > 0 ? '/' + path.join('') : null;
-
+      return path.length > 0 ? "/" + path.join("") : null;
     } catch (error) {
-      console.warn('XPathSelectorStrategy: Error extracting selector:', error);
+      console.warn("XPathSelectorStrategy: Error extracting selector:", error);
       return null;
     }
   }
@@ -254,7 +268,7 @@ class TextSelectorStrategy implements SelectorStrategy {
   extract(element: Element): string | null {
     try {
       const text = element.textContent?.trim();
-      
+
       if (!text || text.length > 100) {
         return null; // Skip very long text or empty elements
       }
@@ -291,9 +305,8 @@ class TextSelectorStrategy implements SelectorStrategy {
       }
 
       return null;
-
     } catch (error) {
-      console.warn('TextSelectorStrategy: Error extracting selector:', error);
+      console.warn("TextSelectorStrategy: Error extracting selector:", error);
       return null;
     }
   }
@@ -316,9 +329,9 @@ class TextSelectorStrategy implements SelectorStrategy {
       const text = element.textContent?.trim();
       if (!text) return false;
 
-      if (selector.startsWith('text=')) {
+      if (selector.startsWith("text=")) {
         return text === selector.substring(5);
-      } else if (selector.startsWith('text*=')) {
+      } else if (selector.startsWith("text*=")) {
         return text.includes(selector.substring(6));
       }
 
@@ -340,13 +353,13 @@ class RoleSelectorStrategy implements SelectorStrategy {
    */
   extract(element: Element): string | null {
     try {
-      const role = element.getAttribute('role');
-      const ariaLabel = element.getAttribute('aria-label');
-      const ariaLabelledby = element.getAttribute('aria-labelledby');
+      const role = element.getAttribute("role");
+      const ariaLabel = element.getAttribute("aria-label");
+      const ariaLabelledby = element.getAttribute("aria-labelledby");
 
       if (role) {
         let roleSelector = `[role="${role}"]`;
-        
+
         if (ariaLabel) {
           roleSelector += `[aria-label="${ariaLabel}"]`;
         }
@@ -364,9 +377,8 @@ class RoleSelectorStrategy implements SelectorStrategy {
       }
 
       return null;
-
     } catch (error) {
-      console.warn('RoleSelectorStrategy: Error extracting selector:', error);
+      console.warn("RoleSelectorStrategy: Error extracting selector:", error);
       return null;
     }
   }
@@ -386,9 +398,10 @@ class RoleSelectorStrategy implements SelectorStrategy {
    */
   isValid(selector: string, element: Element): boolean {
     try {
-      if (selector.startsWith('role=')) {
+      if (selector.startsWith("role=")) {
         const expectedRole = selector.substring(5);
-        const actualRole = element.getAttribute('role') || this.getImplicitRole(element);
+        const actualRole =
+          element.getAttribute("role") || this.getImplicitRole(element);
         return actualRole === expectedRole;
       }
 
@@ -407,27 +420,31 @@ class RoleSelectorStrategy implements SelectorStrategy {
    */
   private getImplicitRole(element: Element): string | null {
     const tagName = element.tagName.toLowerCase();
-    
+
+    // Handle input elements specially
+    if (tagName === "input") {
+      return this.getInputRole(element as HTMLInputElement);
+    }
+
     const roleMap: { [key: string]: string } = {
-      'button': 'button',
-      'a': 'link',
-      'input': this.getInputRole(element as HTMLInputElement),
-      'textarea': 'textbox',
-      'select': 'combobox',
-      'img': 'img',
-      'h1': 'heading',
-      'h2': 'heading',
-      'h3': 'heading',
-      'h4': 'heading',
-      'h5': 'heading',
-      'h6': 'heading',
-      'nav': 'navigation',
-      'main': 'main',
-      'header': 'banner',
-      'footer': 'contentinfo',
-      'aside': 'complementary',
-      'section': 'region',
-      'article': 'article'
+      button: "button",
+      a: "link",
+      textarea: "textbox",
+      select: "combobox",
+      img: "img",
+      h1: "heading",
+      h2: "heading",
+      h3: "heading",
+      h4: "heading",
+      h5: "heading",
+      h6: "heading",
+      nav: "navigation",
+      main: "main",
+      header: "banner",
+      footer: "contentinfo",
+      aside: "complementary",
+      section: "region",
+      article: "article",
     };
 
     return roleMap[tagName] || null;
@@ -440,24 +457,24 @@ class RoleSelectorStrategy implements SelectorStrategy {
    * @private
    */
   private getInputRole(input: HTMLInputElement): string {
-    const type = input.type.toLowerCase();
-    
+    const type = (input.type || "text").toLowerCase();
+
     const inputRoles: { [key: string]: string } = {
-      'button': 'button',
-      'submit': 'button',
-      'reset': 'button',
-      'checkbox': 'checkbox',
-      'radio': 'radio',
-      'text': 'textbox',
-      'password': 'textbox',
-      'email': 'textbox',
-      'search': 'searchbox',
-      'tel': 'textbox',
-      'url': 'textbox',
-      'number': 'spinbutton'
+      button: "button",
+      submit: "button",
+      reset: "button",
+      checkbox: "checkbox",
+      radio: "radio",
+      text: "textbox",
+      password: "textbox",
+      email: "textbox",
+      search: "searchbox",
+      tel: "textbox",
+      url: "textbox",
+      number: "spinbutton",
     };
 
-    return inputRoles[type] || 'textbox';
+    return inputRoles[type] || "textbox";
   }
 }
 
@@ -473,7 +490,7 @@ export class SelectorExtractor {
       new CssSelectorStrategy(),
       new XPathSelectorStrategy(),
       new TextSelectorStrategy(),
-      new RoleSelectorStrategy()
+      new RoleSelectorStrategy(),
     ].sort((a, b) => b.getPriority() - a.getPriority());
   }
 
@@ -491,11 +508,15 @@ export class SelectorExtractor {
       try {
         const selector = strategy.extract(element);
         if (selector) {
-          const confidence = this.calculateConfidence(selector, element, strategy);
-          
+          const confidence = this.calculateConfidence(
+            selector,
+            element,
+            strategy
+          );
+
           const elementSelector: ElementSelector = {
             confidence,
-            boundingBox
+            boundingBox,
           };
 
           // Assign selector to appropriate property based on strategy
@@ -515,7 +536,11 @@ export class SelectorExtractor {
           selectors.push(elementSelector);
         }
       } catch (error) {
-        console.warn('SelectorExtractor: Error with strategy:', strategy.constructor.name, error);
+        console.warn(
+          "SelectorExtractor: Error with strategy:",
+          strategy.constructor.name,
+          error
+        );
       }
     }
 
@@ -544,12 +569,12 @@ export class SelectorExtractor {
 
     try {
       // Bonus for ID-based selectors
-      if (selector.includes('#') && element.id) {
+      if (selector.includes("#") && element.id) {
         confidence += 5;
       }
 
       // Bonus for data attributes
-      if (selector.includes('data-')) {
+      if (selector.includes("data-")) {
         confidence += 3;
       }
 
@@ -569,7 +594,6 @@ export class SelectorExtractor {
       } else {
         confidence -= 20;
       }
-
     } catch (error) {
       confidence -= 15;
     }
@@ -585,12 +609,12 @@ export class SelectorExtractor {
    */
   private getBoundingBox(element: Element): BoundingBox {
     const rect = element.getBoundingClientRect();
-    
+
     return {
       x: rect.left + window.scrollX,
       y: rect.top + window.scrollY,
       width: rect.width,
-      height: rect.height
+      height: rect.height,
     };
   }
 
@@ -603,8 +627,19 @@ export class SelectorExtractor {
   private extractRelevantAttributes(element: Element): Record<string, string> {
     const attributes: Record<string, string> = {};
     const relevantAttrs = [
-      'id', 'class', 'name', 'type', 'value', 'placeholder', 'title', 
-      'role', 'aria-label', 'data-testid', 'data-test', 'href', 'src'
+      "id",
+      "class",
+      "name",
+      "type",
+      "value",
+      "placeholder",
+      "title",
+      "role",
+      "aria-label",
+      "data-testid",
+      "data-test",
+      "href",
+      "src",
     ];
 
     for (const attr of relevantAttrs) {
@@ -615,7 +650,7 @@ export class SelectorExtractor {
     }
 
     // Add tag name for reference
-    attributes['tagName'] = element.tagName.toLowerCase();
+    attributes["tagName"] = element.tagName.toLowerCase();
 
     return attributes;
   }
@@ -627,16 +662,19 @@ export class SelectorExtractor {
    * @returns Fallback element selector
    * @private
    */
-  private createFallbackSelector(element: Element, boundingBox: BoundingBox): ElementSelector {
+  private createFallbackSelector(
+    element: Element,
+    boundingBox: BoundingBox
+  ): ElementSelector {
     const tagName = element.tagName.toLowerCase();
-    const text = element.textContent?.trim().slice(0, 30) || '';
-    
+    const text = element.textContent?.trim().slice(0, 30) || "";
+
     return {
       css: tagName,
       text: text || undefined,
       attributes: this.extractRelevantAttributes(element),
       boundingBox,
-      confidence: 10 // Low confidence for fallback
+      confidence: 10, // Low confidence for fallback
     };
   }
 }

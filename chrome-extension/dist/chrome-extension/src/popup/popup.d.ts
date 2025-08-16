@@ -4,9 +4,9 @@
  * @description React-based UI for controlling recording and managing workflows.
  * Follows Component-based architecture with hooks for state management.
  */
-import React from 'react';
+import React from "react";
 /**
- * Main popup component
+ * Main popup component - Simplified for sidebar toggle
  * Follows functional component pattern with hooks
  */
 declare const AutoFlowPopup: React.FC;

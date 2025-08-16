@@ -6,7 +6,7 @@
  * Follows SOLID principles and acts as a message broker.
  */
 
-import { TraceStep, Workflow } from '@shared/types/core';
+import { TraceStep, Workflow } from "@shared/types/core";
 
 /**
  * Background script state management
@@ -42,9 +42,9 @@ interface ExtensionMessage {
 class AutoFlowBackground {
   private state: BackgroundState;
   private readonly STORAGE_KEYS = {
-    WORKFLOWS: 'autoflow_workflows',
-    SESSIONS: 'autoflow_sessions',
-    SETTINGS: 'autoflow_settings'
+    WORKFLOWS: "autoflow_workflows",
+    SESSIONS: "autoflow_sessions",
+    SETTINGS: "autoflow_settings",
   };
 
   /**
@@ -56,7 +56,7 @@ class AutoFlowBackground {
       isRecording: false,
       activeTabId: null,
       currentSteps: [],
-      sessionStartTime: null
+      sessionStartTime: null,
     };
 
     this.setupEventListeners();
@@ -77,8 +77,12 @@ class AutoFlowBackground {
     chrome.tabs.onRemoved.addListener(this.handleTabRemoved.bind(this));
 
     // Handle navigation events
-    chrome.webNavigation.onCompleted.addListener(this.handleNavigationCompleted.bind(this));
-    chrome.webNavigation.onBeforeNavigate.addListener(this.handleBeforeNavigate.bind(this));
+    chrome.webNavigation.onCompleted.addListener(
+      this.handleNavigationCompleted.bind(this)
+    );
+    chrome.webNavigation.onBeforeNavigate.addListener(
+      this.handleBeforeNavigate.bind(this)
+    );
 
     // Handle extension lifecycle events
     chrome.runtime.onInstalled.addListener(this.handleInstalled.bind(this));
@@ -96,13 +100,13 @@ class AutoFlowBackground {
     try {
       // Restore previous state if exists
       await this.restoreState();
-      
+
       // Update extension badge
       this.updateBadge();
-      
-      console.log('AutoFlow Background: Extension initialized');
+
+      console.log("AutoFlow Background: Extension initialized");
     } catch (error) {
-      console.error('AutoFlow Background: Error during initialization:', error);
+      console.error("AutoFlow Background: Error during initialization:", error);
     }
   }
 
@@ -119,77 +123,153 @@ class AutoFlowBackground {
     sender: chrome.runtime.MessageSender,
     sendResponse: (response?: any) => void
   ): boolean {
-    console.log('AutoFlow Background: Received message:', message.type);
+    console.log("AutoFlow Background: Received message:", message.type);
 
     switch (message.type) {
-      case 'START_RECORDING':
+      case "START_RECORDING":
         this.startRecording(message.data, sender.tab?.id)
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((result) => sendResponse(result))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'STOP_RECORDING':
+      case "STOP_RECORDING":
         this.stopRecording()
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((result) => sendResponse(result))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'GET_RECORDING_STATE':
+      case "GET_RECORDING_STATE":
         sendResponse(this.getRecordingState());
         return false;
 
-      case 'SAVE_TRACE_STEP':
+      case "SAVE_TRACE_STEP":
         this.saveTraceStep(message.step!)
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((result) => sendResponse(result))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'GET_CURRENT_TAB':
+      case "GET_CURRENT_TAB":
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           sendResponse({ tabId: tabs[0]?.id || null });
         });
         return true;
 
-      case 'CAPTURE_VISIBLE_TAB':
+      case "TOGGLE_SIDEBAR":
+        this.toggleSidebar(sender.tab?.id)
+          .then((result) => sendResponse(result))
+          .catch((error) =>
+            sendResponse({
+              success: false,
+              error: error.message || "Unknown error toggling sidebar",
+            })
+          );
+        return true;
+
+      case "CAPTURE_VISIBLE_TAB":
         this.captureVisibleTab(sender.tab?.id)
-          .then(screenshot => sendResponse({ screenshot }))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((screenshot) => sendResponse({ screenshot }))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'CAPTURE_FULL_PAGE':
+      case "CAPTURE_FULL_PAGE":
         this.captureFullPage(sender.tab?.id)
-          .then(screenshot => sendResponse({ screenshot }))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((screenshot) => sendResponse({ screenshot }))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'GET_WORKFLOWS':
+      case "GET_WORKFLOWS":
         this.getStoredWorkflows()
-          .then(workflows => sendResponse({ workflows }))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((workflows) => sendResponse({ workflows }))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'SAVE_WORKFLOW':
+      case "SAVE_WORKFLOW":
         this.saveWorkflow(message.data)
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((result) => sendResponse(result))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'DELETE_WORKFLOW':
+      case "DELETE_WORKFLOW":
         this.deleteWorkflow(message.data.workflowId)
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((result) => sendResponse(result))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
-      case 'EXPORT_SESSION':
+      case "EXPORT_SESSION":
         this.exportCurrentSession()
-          .then(sessionData => sendResponse(sessionData))
-          .catch(error => sendResponse({ error: error.message }));
+          .then((sessionData) => sendResponse(sessionData))
+          .catch((error) => sendResponse({ error: error.message }));
         return true;
 
       default:
-        console.warn('AutoFlow Background: Unknown message type:', message.type);
-        sendResponse({ error: 'Unknown message type' });
+        console.warn(
+          "AutoFlow Background: Unknown message type:",
+          message.type
+        );
+        sendResponse({ error: "Unknown message type" });
         return false;
+    }
+  }
+
+  /**
+   * Toggle sidebar visibility on a specific tab
+   * @param tabId - Tab ID to toggle sidebar on (optional, will use current active tab)
+   * @returns Promise resolving to success status
+   * @private
+   */
+  private async toggleSidebar(tabId?: number): Promise<{ success: boolean }> {
+    try {
+      let targetTabId = tabId;
+
+      // If no tab ID provided, get the current active tab
+      if (!targetTabId) {
+        const activeTab = await this.getCurrentActiveTab();
+        if (!activeTab || !activeTab.id) {
+          throw new Error("No active tab found");
+        }
+        targetTabId = activeTab.id;
+      }
+
+      console.log("AutoFlow Background: Toggling sidebar on tab:", targetTabId);
+
+      // Step 1: Ensure content script is injected
+      await this.ensureContentScriptInjected(targetTabId);
+
+      // Step 2: Always ensure sidebar script is injected (safer approach)
+      await this.ensureSidebarScriptInjected(targetTabId);
+
+      // Step 3: Wait a bit longer for scripts to initialize properly
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // Step 4: Send toggle message with improved logic
+      console.log("AutoFlow Background: Sending TOGGLE_SIDEBAR message");
+
+      const response = await new Promise<any>((resolve, reject) => {
+        chrome.tabs.sendMessage(
+          targetTabId!,
+          { type: "TOGGLE_SIDEBAR" },
+          (resp) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(resp || { success: true });
+            }
+          }
+        );
+      });
+
+      if (response && response.success) {
+        console.log(
+          "AutoFlow Background: Sidebar toggled successfully, active:",
+          response.sidebarActive
+        );
+        return { success: true };
+      } else {
+        throw new Error("Toggle response indicated failure");
+      }
+    } catch (error) {
+      console.error("AutoFlow Background: Error toggling sidebar:", error);
+      return { success: false };
     }
   }
 
@@ -209,14 +289,14 @@ class AutoFlowBackground {
 
       // Generate new session ID
       const sessionId = this.generateSessionId();
-      
+
       // Determine active tab
-      const activeTab = tabId ? 
-        await this.getTabById(tabId) :
-        await this.getCurrentActiveTab();
+      const activeTab = tabId
+        ? await this.getTabById(tabId)
+        : await this.getCurrentActiveTab();
 
       if (!activeTab) {
-        throw new Error('No active tab found for recording');
+        throw new Error("No active tab found for recording");
       }
 
       // Update state
@@ -234,25 +314,27 @@ class AutoFlowBackground {
 
       // Notify content script to start recording
       await chrome.tabs.sendMessage(activeTab.id!, {
-        type: 'START_RECORDING',
+        type: "START_RECORDING",
         sessionId: sessionId,
-        config: config
+        config: config,
       });
 
       // Update badge
       this.updateBadge();
 
-      console.log('AutoFlow Background: Recording started for session:', sessionId);
+      console.log(
+        "AutoFlow Background: Recording started for session:",
+        sessionId
+      );
 
       return {
         success: true,
         sessionId: sessionId,
         tabId: activeTab.id,
-        url: activeTab.url
+        url: activeTab.url,
       };
-
     } catch (error) {
-      console.error('AutoFlow Background: Error starting recording:', error);
+      console.error("AutoFlow Background: Error starting recording:", error);
       throw error;
     }
   }
@@ -265,23 +347,27 @@ class AutoFlowBackground {
   private async stopRecording(): Promise<any> {
     try {
       if (!this.state.isRecording || !this.state.currentSessionId) {
-        return { success: false, message: 'No active recording session' };
+        return { success: false, message: "No active recording session" };
       }
 
       const sessionId = this.state.currentSessionId;
       const stepCount = this.state.currentSteps.length;
-      const duration = this.state.sessionStartTime ? 
-        Date.now() - this.state.sessionStartTime : 0;
+      const duration = this.state.sessionStartTime
+        ? Date.now() - this.state.sessionStartTime
+        : 0;
 
       // Notify content script to stop recording
       if (this.state.activeTabId) {
         try {
           await chrome.tabs.sendMessage(this.state.activeTabId, {
-            type: 'STOP_RECORDING',
-            sessionId: sessionId
+            type: "STOP_RECORDING",
+            sessionId: sessionId,
           });
         } catch (error) {
-          console.warn('AutoFlow Background: Could not notify content script:', error);
+          console.warn(
+            "AutoFlow Background: Could not notify content script:",
+            error
+          );
         }
       }
 
@@ -292,7 +378,7 @@ class AutoFlowBackground {
         duration: duration,
         tabId: this.state.activeTabId,
         endTime: Date.now(),
-        stepCount: stepCount
+        stepCount: stepCount,
       };
 
       await this.saveSessionData(sessionData);
@@ -310,18 +396,20 @@ class AutoFlowBackground {
       // Update badge
       this.updateBadge();
 
-      console.log('AutoFlow Background: Recording stopped for session:', sessionId);
+      console.log(
+        "AutoFlow Background: Recording stopped for session:",
+        sessionId
+      );
 
       return {
         success: true,
         sessionId: sessionId,
         stepCount: stepCount,
         duration: duration,
-        sessionData: sessionData
+        sessionData: sessionData,
       };
-
     } catch (error) {
-      console.error('AutoFlow Background: Error stopping recording:', error);
+      console.error("AutoFlow Background: Error stopping recording:", error);
       throw error;
     }
   }
@@ -337,8 +425,9 @@ class AutoFlowBackground {
       sessionId: this.state.currentSessionId,
       activeTabId: this.state.activeTabId,
       stepCount: this.state.currentSteps.length,
-      duration: this.state.sessionStartTime ? 
-        Date.now() - this.state.sessionStartTime : 0
+      duration: this.state.sessionStartTime
+        ? Date.now() - this.state.sessionStartTime
+        : 0,
     };
   }
 
@@ -351,8 +440,10 @@ class AutoFlowBackground {
   private async saveTraceStep(step: TraceStep): Promise<any> {
     try {
       if (!this.state.isRecording || !this.state.currentSessionId) {
-        console.warn('AutoFlow Background: Attempted to save step while not recording');
-        return { success: false, message: 'Not currently recording' };
+        console.warn(
+          "AutoFlow Background: Attempted to save step while not recording"
+        );
+        return { success: false, message: "Not currently recording" };
       }
 
       // Add step to current session
@@ -367,16 +458,15 @@ class AutoFlowBackground {
           sessionId: this.state.currentSessionId,
           steps: [...this.state.currentSteps],
           stepCount: this.state.currentSteps.length,
-          lastUpdated: Date.now()
+          lastUpdated: Date.now(),
         });
       }
 
-      console.log('AutoFlow Background: Step saved:', step.id);
+      console.log("AutoFlow Background: Step saved:", step.id);
 
       return { success: true, stepIndex: this.state.currentSteps.length - 1 };
-
     } catch (error) {
-      console.error('AutoFlow Background: Error saving trace step:', error);
+      console.error("AutoFlow Background: Error saving trace step:", error);
       throw error;
     }
   }
@@ -390,21 +480,20 @@ class AutoFlowBackground {
   private async captureVisibleTab(tabId?: number): Promise<string | null> {
     try {
       const targetTabId = tabId || this.state.activeTabId;
-      
+
       if (!targetTabId) {
-        throw new Error('No tab ID provided for screenshot');
+        throw new Error("No tab ID provided for screenshot");
       }
 
       // Capture visible tab
       const screenshot = await chrome.tabs.captureVisibleTab({
-        format: 'png',
-        quality: 90
+        format: "png",
+        quality: 90,
       });
 
       return screenshot;
-
     } catch (error) {
-      console.error('AutoFlow Background: Error capturing visible tab:', error);
+      console.error("AutoFlow Background: Error capturing visible tab:", error);
       return null;
     }
   }
@@ -434,15 +523,19 @@ class AutoFlowBackground {
     tab: chrome.tabs.Tab
   ): void {
     // If recording tab navigated, handle the navigation
-    if (this.state.isRecording && 
-        this.state.activeTabId === tabId && 
-        changeInfo.status === 'complete') {
-      
-      console.log('AutoFlow Background: Recording tab navigation detected');
-      
+    if (
+      this.state.isRecording &&
+      this.state.activeTabId === tabId &&
+      changeInfo.status === "complete"
+    ) {
+      console.log("AutoFlow Background: Recording tab navigation detected");
+
       // Re-inject content script if needed
-      this.ensureContentScriptInjected(tabId).catch(error => {
-        console.error('AutoFlow Background: Error re-injecting content script:', error);
+      this.ensureContentScriptInjected(tabId).catch((error) => {
+        console.error(
+          "AutoFlow Background: Error re-injecting content script:",
+          error
+        );
       });
     }
   }
@@ -454,7 +547,7 @@ class AutoFlowBackground {
    */
   private handleTabActivated(activeInfo: chrome.tabs.TabActiveInfo): void {
     // Update UI if needed
-    console.log('AutoFlow Background: Tab activated:', activeInfo.tabId);
+    console.log("AutoFlow Background: Tab activated:", activeInfo.tabId);
   }
 
   /**
@@ -469,9 +562,14 @@ class AutoFlowBackground {
   ): void {
     // If the recording tab was closed, stop recording
     if (this.state.isRecording && this.state.activeTabId === tabId) {
-      console.log('AutoFlow Background: Recording tab closed, stopping recording');
-      this.stopRecording().catch(error => {
-        console.error('AutoFlow Background: Error stopping recording after tab close:', error);
+      console.log(
+        "AutoFlow Background: Recording tab closed, stopping recording"
+      );
+      this.stopRecording().catch((error) => {
+        console.error(
+          "AutoFlow Background: Error stopping recording after tab close:",
+          error
+        );
       });
     }
   }
@@ -481,14 +579,19 @@ class AutoFlowBackground {
    * @param details - Navigation details
    * @private
    */
-  private handleNavigationCompleted(details: chrome.webNavigation.WebNavigationFramedCallbackDetails): void {
+  private handleNavigationCompleted(
+    details: chrome.webNavigation.WebNavigationFramedCallbackDetails
+  ): void {
     // Only handle main frame navigation
     if (details.frameId !== 0) return;
 
     // If this is the recording tab, ensure content script is present
     if (this.state.isRecording && this.state.activeTabId === details.tabId) {
-      this.ensureContentScriptInjected(details.tabId).catch(error => {
-        console.error('AutoFlow Background: Error ensuring content script after navigation:', error);
+      this.ensureContentScriptInjected(details.tabId).catch((error) => {
+        console.error(
+          "AutoFlow Background: Error ensuring content script after navigation:",
+          error
+        );
       });
     }
   }
@@ -498,10 +601,12 @@ class AutoFlowBackground {
    * @param details - Navigation details
    * @private
    */
-  private handleBeforeNavigate(details: chrome.webNavigation.WebNavigationParentedCallbackDetails): void {
+  private handleBeforeNavigate(
+    details: chrome.webNavigation.WebNavigationParentedCallbackDetails
+  ): void {
     // Record navigation event if recording
     if (this.state.isRecording && this.state.activeTabId === details.tabId) {
-      console.log('AutoFlow Background: Navigation detected during recording');
+      console.log("AutoFlow Background: Navigation detected during recording");
     }
   }
 
@@ -511,12 +616,18 @@ class AutoFlowBackground {
    * @private
    */
   private handleInstalled(details: chrome.runtime.InstalledDetails): void {
-    console.log('AutoFlow Background: Extension installed/updated:', details.reason);
-    
-    if (details.reason === 'install') {
+    console.log(
+      "AutoFlow Background: Extension installed/updated:",
+      details.reason
+    );
+
+    if (details.reason === "install") {
       // Set up initial storage structure
-      this.initializeStorage().catch(error => {
-        console.error('AutoFlow Background: Error initializing storage:', error);
+      this.initializeStorage().catch((error) => {
+        console.error(
+          "AutoFlow Background: Error initializing storage:",
+          error
+        );
       });
     }
   }
@@ -526,7 +637,7 @@ class AutoFlowBackground {
    * @private
    */
   private handleStartup(): void {
-    console.log('AutoFlow Background: Extension started');
+    console.log("AutoFlow Background: Extension started");
   }
 
   /**
@@ -537,23 +648,119 @@ class AutoFlowBackground {
    */
   private async ensureContentScriptInjected(tabId: number): Promise<void> {
     try {
-      // Test if content script is already present
-      const response = await chrome.tabs.sendMessage(tabId, { 
-        type: 'GET_RECORDING_STATE' 
-      }).catch(() => null);
+      // Get tab info to check URL
+      const tab = await chrome.tabs.get(tabId);
+
+      // Skip injection for restricted URLs
+      if (
+        !tab.url ||
+        tab.url.startsWith("chrome://") ||
+        tab.url.startsWith("chrome-extension://") ||
+        tab.url.startsWith("moz-extension://") ||
+        tab.url.startsWith("edge://") ||
+        tab.url.startsWith("about:")
+      ) {
+        console.log(
+          "AutoFlow Background: Skipping injection for restricted URL:",
+          tab.url
+        );
+        throw new Error("Cannot inject into restricted URL");
+      }
+
+      // Test if content script is already present with longer timeout
+      let response = null;
+      try {
+        response = await Promise.race([
+          chrome.tabs.sendMessage(tabId, { type: "GET_RECORDING_STATE" }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("timeout")), 1000)
+          ),
+        ]);
+      } catch (error) {
+        // Assume not present if any error occurs
+        response = null;
+      }
 
       if (!response) {
         // Content script not present, inject it
+        console.log(
+          "AutoFlow Background: Injecting content script into tab:",
+          tabId
+        );
+
         await chrome.scripting.executeScript({
           target: { tabId: tabId },
-          files: ['content.js']
+          files: ["content.js"],
         });
 
-        console.log('AutoFlow Background: Content script injected into tab:', tabId);
+        console.log(
+          "AutoFlow Background: Content script injected, waiting for initialization..."
+        );
+
+        // Wait longer for content script to initialize
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    } catch (error) {
+      console.error(
+        "AutoFlow Background: Error ensuring content script injection:",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Ensure sidebar script is injected in the specified tab
+   * @param tabId - Tab ID to inject into
+   * @returns Promise resolving when injection is complete
+   * @private
+   */
+  private async ensureSidebarScriptInjected(tabId: number): Promise<void> {
+    try {
+      // Get tab info to check URL
+      const tab = await chrome.tabs.get(tabId);
+
+      // Skip injection for restricted URLs
+      if (
+        !tab.url ||
+        tab.url.startsWith("chrome://") ||
+        tab.url.startsWith("chrome-extension://") ||
+        tab.url.startsWith("moz-extension://") ||
+        tab.url.startsWith("edge://") ||
+        tab.url.startsWith("about:")
+      ) {
+        console.log(
+          "AutoFlow Background: Skipping sidebar injection for restricted URL:",
+          tab.url
+        );
+        throw new Error("Cannot inject into restricted URL");
       }
 
+      console.log(
+        "AutoFlow Background: Injecting sidebar script into tab:",
+        tabId
+      );
+
+      // Always inject sidebar script - Chrome handles duplicates gracefully
+      // This is more reliable than trying to detect existing scripts
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ["sidebar.js"],
+      });
+
+      console.log(
+        "AutoFlow Background: Sidebar script injected, waiting for initialization..."
+      );
+
+      // Wait longer for the script to initialize and set up event listeners
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      console.log("AutoFlow Background: Sidebar script should be ready");
     } catch (error) {
-      console.error('AutoFlow Background: Error ensuring content script injection:', error);
+      console.error(
+        "AutoFlow Background: Error ensuring sidebar script injection:",
+        error
+      );
       throw error;
     }
   }
@@ -563,26 +770,47 @@ class AutoFlowBackground {
    * @private
    */
   private setupContextMenus(): void {
-    chrome.contextMenus.create({
-      id: 'autoflow-start-recording',
-      title: 'Start AutoFlow Recording',
-      contexts: ['page']
+    // Remove existing menus first to avoid duplicates
+    chrome.contextMenus.removeAll(() => {
+      // Create new context menus
+      chrome.contextMenus.create({
+        id: "autoflow-start-recording",
+        title: "Start AutoFlow Recording",
+        contexts: ["page"],
+      });
+
+      chrome.contextMenus.create({
+        id: "autoflow-stop-recording",
+        title: "Stop AutoFlow Recording",
+        contexts: ["page"],
+      });
     });
 
-    chrome.contextMenus.create({
-      id: 'autoflow-stop-recording', 
-      title: 'Stop AutoFlow Recording',
-      contexts: ['page']
-    });
-
-    chrome.contextMenus.onClicked.addListener((info, tab) => {
-      if (info.menuItemId === 'autoflow-start-recording') {
-        this.startRecording({}, tab?.id).catch(console.error);
-      } else if (info.menuItemId === 'autoflow-stop-recording') {
-        this.stopRecording().catch(console.error);
-      }
-    });
+    // Set up click handler (only once)
+    if (!this.contextMenuListenerAdded) {
+      chrome.contextMenus.onClicked.addListener(
+        this.handleContextMenuClick.bind(this)
+      );
+      this.contextMenuListenerAdded = true;
+    }
   }
+
+  private contextMenuListenerAdded = false;
+
+  /**
+   * Handle context menu clicks
+   * @private
+   */
+  private handleContextMenuClick = (
+    info: chrome.contextMenus.OnClickData,
+    tab?: chrome.tabs.Tab
+  ): void => {
+    if (info.menuItemId === "autoflow-start-recording") {
+      this.startRecording({}, tab?.id).catch(console.error);
+    } else if (info.menuItemId === "autoflow-stop-recording") {
+      this.stopRecording().catch(console.error);
+    }
+  };
 
   /**
    * Update extension badge to show recording status
@@ -590,12 +818,14 @@ class AutoFlowBackground {
    */
   private updateBadge(): void {
     if (this.state.isRecording) {
-      chrome.action.setBadgeText({ text: 'REC' });
-      chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
-      chrome.action.setTitle({ title: 'AutoFlow Studio - Recording Active' });
+      chrome.action.setBadgeText({ text: "REC" });
+      chrome.action.setBadgeBackgroundColor({ color: "#ef4444" });
+      chrome.action.setTitle({ title: "AutoFlow Studio - Recording Active" });
     } else {
-      chrome.action.setBadgeText({ text: '' });
-      chrome.action.setTitle({ title: 'AutoFlow Studio - Smart Browser Automation' });
+      chrome.action.setBadgeText({ text: "" });
+      chrome.action.setTitle({
+        title: "AutoFlow Studio - Smart Browser Automation",
+      });
     }
   }
 
@@ -632,7 +862,10 @@ class AutoFlowBackground {
    */
   private async getCurrentActiveTab(): Promise<chrome.tabs.Tab | null> {
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabs = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       return tabs[0] || null;
     } catch (error) {
       return null;
@@ -647,10 +880,10 @@ class AutoFlowBackground {
   private async saveState(): Promise<void> {
     try {
       await chrome.storage.local.set({
-        autoflow_state: this.state
+        autoflow_state: this.state,
       });
     } catch (error) {
-      console.error('AutoFlow Background: Error saving state:', error);
+      console.error("AutoFlow Background: Error saving state:", error);
       throw error;
     }
   }
@@ -662,13 +895,13 @@ class AutoFlowBackground {
    */
   private async restoreState(): Promise<void> {
     try {
-      const result = await chrome.storage.local.get(['autoflow_state']);
+      const result = await chrome.storage.local.get(["autoflow_state"]);
       if (result.autoflow_state) {
         this.state = { ...this.state, ...result.autoflow_state };
-        console.log('AutoFlow Background: State restored');
+        console.log("AutoFlow Background: State restored");
       }
     } catch (error) {
-      console.error('AutoFlow Background: Error restoring state:', error);
+      console.error("AutoFlow Background: Error restoring state:", error);
     }
   }
 
@@ -682,9 +915,12 @@ class AutoFlowBackground {
     try {
       const key = `session_${sessionData.sessionId}`;
       await chrome.storage.local.set({ [key]: sessionData });
-      console.log('AutoFlow Background: Session data saved:', sessionData.sessionId);
+      console.log(
+        "AutoFlow Background: Session data saved:",
+        sessionData.sessionId
+      );
     } catch (error) {
-      console.error('AutoFlow Background: Error saving session data:', error);
+      console.error("AutoFlow Background: Error saving session data:", error);
       throw error;
     }
   }
@@ -696,10 +932,12 @@ class AutoFlowBackground {
    */
   private async getStoredWorkflows(): Promise<Workflow[]> {
     try {
-      const result = await chrome.storage.local.get([this.STORAGE_KEYS.WORKFLOWS]);
+      const result = await chrome.storage.local.get([
+        this.STORAGE_KEYS.WORKFLOWS,
+      ]);
       return result[this.STORAGE_KEYS.WORKFLOWS] || [];
     } catch (error) {
-      console.error('AutoFlow Background: Error getting workflows:', error);
+      console.error("AutoFlow Background: Error getting workflows:", error);
       return [];
     }
   }
@@ -713,8 +951,8 @@ class AutoFlowBackground {
   private async saveWorkflow(workflow: Workflow): Promise<any> {
     try {
       const workflows = await this.getStoredWorkflows();
-      const existingIndex = workflows.findIndex(w => w.id === workflow.id);
-      
+      const existingIndex = workflows.findIndex((w) => w.id === workflow.id);
+
       if (existingIndex >= 0) {
         workflows[existingIndex] = workflow;
       } else {
@@ -722,12 +960,12 @@ class AutoFlowBackground {
       }
 
       await chrome.storage.local.set({
-        [this.STORAGE_KEYS.WORKFLOWS]: workflows
+        [this.STORAGE_KEYS.WORKFLOWS]: workflows,
       });
 
       return { success: true, workflow };
     } catch (error) {
-      console.error('AutoFlow Background: Error saving workflow:', error);
+      console.error("AutoFlow Background: Error saving workflow:", error);
       throw error;
     }
   }
@@ -741,15 +979,15 @@ class AutoFlowBackground {
   private async deleteWorkflow(workflowId: string): Promise<any> {
     try {
       const workflows = await this.getStoredWorkflows();
-      const filteredWorkflows = workflows.filter(w => w.id !== workflowId);
-      
+      const filteredWorkflows = workflows.filter((w) => w.id !== workflowId);
+
       await chrome.storage.local.set({
-        [this.STORAGE_KEYS.WORKFLOWS]: filteredWorkflows
+        [this.STORAGE_KEYS.WORKFLOWS]: filteredWorkflows,
       });
 
       return { success: true, deletedId: workflowId };
     } catch (error) {
-      console.error('AutoFlow Background: Error deleting workflow:', error);
+      console.error("AutoFlow Background: Error deleting workflow:", error);
       throw error;
     }
   }
@@ -762,20 +1000,21 @@ class AutoFlowBackground {
   private async exportCurrentSession(): Promise<any> {
     try {
       if (!this.state.currentSessionId) {
-        throw new Error('No active session to export');
+        throw new Error("No active session to export");
       }
 
       return {
         sessionId: this.state.currentSessionId,
         steps: [...this.state.currentSteps],
         stepCount: this.state.currentSteps.length,
-        duration: this.state.sessionStartTime ? 
-          Date.now() - this.state.sessionStartTime : 0,
+        duration: this.state.sessionStartTime
+          ? Date.now() - this.state.sessionStartTime
+          : 0,
         exportTime: Date.now(),
-        tabId: this.state.activeTabId
+        tabId: this.state.activeTabId,
       };
     } catch (error) {
-      console.error('AutoFlow Background: Error exporting session:', error);
+      console.error("AutoFlow Background: Error exporting session:", error);
       throw error;
     }
   }
@@ -793,8 +1032,8 @@ class AutoFlowBackground {
         [this.STORAGE_KEYS.SETTINGS]: {
           captureScreenshots: true,
           autoSave: true,
-          maxStoredSessions: 10
-        }
+          maxStoredSessions: 10,
+        },
       };
 
       // Only set defaults if keys don't exist
@@ -809,10 +1048,10 @@ class AutoFlowBackground {
 
       if (Object.keys(toSet).length > 0) {
         await chrome.storage.local.set(toSet);
-        console.log('AutoFlow Background: Storage initialized with defaults');
+        console.log("AutoFlow Background: Storage initialized with defaults");
       }
     } catch (error) {
-      console.error('AutoFlow Background: Error initializing storage:', error);
+      console.error("AutoFlow Background: Error initializing storage:", error);
       throw error;
     }
   }

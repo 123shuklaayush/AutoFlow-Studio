@@ -36,6 +36,13 @@ declare class AutoFlowBackground {
      */
     private handleMessage;
     /**
+     * Toggle sidebar visibility on a specific tab
+     * @param tabId - Tab ID to toggle sidebar on (optional, will use current active tab)
+     * @returns Promise resolving to success status
+     * @private
+     */
+    private toggleSidebar;
+    /**
      * Start a new recording session
      * @param config - Recording configuration
      * @param tabId - Tab ID to record (optional)
@@ -128,10 +135,23 @@ declare class AutoFlowBackground {
      */
     private ensureContentScriptInjected;
     /**
+     * Ensure sidebar script is injected in the specified tab
+     * @param tabId - Tab ID to inject into
+     * @returns Promise resolving when injection is complete
+     * @private
+     */
+    private ensureSidebarScriptInjected;
+    /**
      * Set up context menus
      * @private
      */
     private setupContextMenus;
+    private contextMenuListenerAdded;
+    /**
+     * Handle context menu clicks
+     * @private
+     */
+    private handleContextMenuClick;
     /**
      * Update extension badge to show recording status
      * @private

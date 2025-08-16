@@ -4,7 +4,7 @@
  * @description Extracts multiple selector strategies for reliable element finding.
  * Implements Interface Segregation Principle with focused selector strategies.
  */
-import { ElementSelector } from '@shared/types/core';
+import { ElementSelector } from "@shared/types/core";
 /**
  * Main selector extractor class that coordinates multiple strategies
  * Follows Single Responsibility Principle and Strategy Pattern

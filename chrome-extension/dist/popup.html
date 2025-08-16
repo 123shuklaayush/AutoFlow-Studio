@@ -1,23 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoFlow Studio</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background-color: #f9fafb;
-    }
-    #root {
-      width: 384px;
-      min-height: 500px;
-    }
-  </style>
-<script defer src="vendor.js"></script><script defer src="popup.js"></script></head>
-<body>
-  <div id="root"></div>
-  <script src="popup.js"></script>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>AutoFlow Studio</title><style>body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+        background-color: #f9fafb;
+      }
+      /* Force correct popup sizing in all cases */
+      html,
+      body {
+        width: 320px;
+        min-height: 280px;
+        margin: 0;
+        overflow: hidden;
+        background-color: #f9fafb;
+      }
+
+      #root {
+        width: 320px;
+        min-height: 280px;
+        max-height: 500px;
+        display: block;
+      }
+
+      /* Ensure Tailwind classes work */
+      .w-80 {
+        width: 20rem !important; /* 320px */
+      }
+
+      .bg-white {
+        background-color: #ffffff;
+      }
+
+      .p-3 {
+        padding: 0.75rem;
+      }</style><script defer="defer" src="vendor.js"></script><script defer="defer" src="popup.js"></script></head><body><div id="root"></div><script src="popup.js"></script></body></html>
