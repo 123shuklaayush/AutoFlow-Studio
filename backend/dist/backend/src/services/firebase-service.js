@@ -42,42 +42,59 @@ class FirebaseService {
      */
     async initialize() {
         if (this.initialized) {
-            simple_logger_1.logger.debug('Firebase already initialized');
+            simple_logger_1.logger.debug("Firebase already initialized");
             return;
         }
         try {
-            simple_logger_1.logger.info('Initializing Firebase Admin SDK...');
+            simple_logger_1.logger.info("Initializing Firebase Admin SDK...");
             // Get configuration from environment
             const config = (0, environment_1.getDatabaseConfig)();
+            // Check if we have real credentials
+            if (config.privateKey === "demo-key-replace-with-real-key" ||
+                config.projectId === "demo-project" ||
+                config.privateKey.includes("DEMO") ||
+                config.privateKey.includes("PLEASE_GENERATE_SERVICE_ACCOUNT_KEY")) {
+                throw new Error(`
+❌ FIREBASE SETUP ERROR: Using dummy credentials!
+
+Please set up real Firebase credentials:
+1. Download service account key from Firebase Console
+2. Set FIREBASE_PROJECT_ID=${config.projectId}
+3. Set FIREBASE_PRIVATE_KEY="your-real-private-key"  
+4. Set FIREBASE_CLIENT_EMAIL="your-real-client-email"
+
+Current values are dummy/placeholder values.
+        `);
+            }
             // Check if Firebase app is already initialized
             if ((0, app_1.getApps)().length === 0) {
                 // Create service account object
                 const serviceAccount = {
                     projectId: config.projectId,
                     privateKey: config.privateKey,
-                    clientEmail: config.clientEmail
+                    clientEmail: config.clientEmail,
                 };
                 // Initialize Firebase Admin SDK
                 (0, app_1.initializeApp)({
                     credential: (0, app_1.cert)(serviceAccount),
                     projectId: config.projectId,
-                    storageBucket: `${config.projectId}.appspot.com`
+                    storageBucket: `${config.projectId}.appspot.com`,
                 });
             }
             // Initialize Firestore
             this.firestore = (0, firestore_1.getFirestore)();
             // Configure Firestore settings
             this.firestore.settings({
-                ignoreUndefinedProperties: true
+                ignoreUndefinedProperties: true,
             });
             // Initialize Storage
             this.storage = (0, storage_1.getStorage)();
             this.initialized = true;
-            simple_logger_1.logger.info('✅ Firebase Admin SDK initialized successfully');
+            simple_logger_1.logger.info("✅ Firebase Admin SDK initialized successfully");
         }
         catch (error) {
-            simple_logger_1.logger.error('❌ Failed to initialize Firebase Admin SDK:', error);
-            throw new Error(`Firebase initialization failed: ${error?.message || 'Unknown error'}`);
+            simple_logger_1.logger.error("❌ Failed to initialize Firebase Admin SDK:", error);
+            throw new Error(`Firebase initialization failed: ${error?.message || "Unknown error"}`);
         }
     }
     /**
@@ -85,7 +102,7 @@ class FirebaseService {
      */
     getFirestore() {
         if (!this.firestore || !this.initialized) {
-            throw new Error('Firebase not initialized. Call initialize() first.');
+            throw new Error("Firebase not initialized. Call initialize() first.");
         }
         return this.firestore;
     }
@@ -94,7 +111,7 @@ class FirebaseService {
      */
     getStorage() {
         if (!this.storage || !this.initialized) {
-            throw new Error('Firebase not initialized. Call initialize() first.');
+            throw new Error("Firebase not initialized. Call initialize() first.");
         }
         return this.storage;
     }
@@ -113,19 +130,19 @@ class FirebaseService {
                 await this.initialize();
             }
             // Test Firestore connection by writing and reading a test document
-            const testDoc = this.firestore.collection('_test').doc('connection');
+            const testDoc = this.firestore.collection("_test").doc("connection");
             await testDoc.set({ timestamp: new Date(), test: true });
             const testRead = await testDoc.get();
             if (!testRead.exists) {
-                throw new Error('Test document not found after write');
+                throw new Error("Test document not found after write");
             }
             // Clean up test document
             await testDoc.delete();
-            simple_logger_1.logger.info('✅ Firebase connection test successful');
+            simple_logger_1.logger.info("✅ Firebase connection test successful");
             return true;
         }
         catch (error) {
-            simple_logger_1.logger.error('❌ Firebase connection test failed:', error);
+            simple_logger_1.logger.error("❌ Firebase connection test failed:", error);
             return false;
         }
     }
@@ -136,25 +153,28 @@ class FirebaseService {
         try {
             const firestore = this.getFirestore();
             // Count documents in main collections
-            const collections = ['users', 'workflows', 'sessions', 'executions'];
+            const collections = ["users", "workflows", "sessions", "executions"];
             const stats = {
                 timestamp: new Date().toISOString(),
-                collections: {}
+                collections: {},
             };
             for (const collectionName of collections) {
                 try {
-                    const snapshot = await firestore.collection(collectionName).count().get();
+                    const snapshot = await firestore
+                        .collection(collectionName)
+                        .count()
+                        .get();
                     stats.collections[collectionName] = snapshot.data().count;
                 }
                 catch (error) {
                     simple_logger_1.logger.warn(`Could not get stats for collection ${collectionName}:`, error);
-                    stats.collections[collectionName] = 'unavailable';
+                    stats.collections[collectionName] = "unavailable";
                 }
             }
             return stats;
         }
         catch (error) {
-            simple_logger_1.logger.error('Error getting database stats:', error);
+            simple_logger_1.logger.error("Error getting database stats:", error);
             throw error;
         }
     }

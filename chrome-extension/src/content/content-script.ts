@@ -27,6 +27,7 @@ class AutoFlowContentScript {
   private screenshotCapture: ScreenshotCapture;
   private eventRecorder: EventRecorder;
   private stepCounter: number = 0;
+  private stepCounterSyncInterval: NodeJS.Timeout | null = null;
 
   /**
    * Initialize the content script with all dependencies
@@ -119,7 +120,11 @@ class AutoFlowContentScript {
       this.recordingSessionId = result.recordingSessionId || null;
 
       if (this.isRecording) {
-        this.showRecordingIndicator();
+        this.showRecordingIndicator().catch((error) => {
+          console.error("AutoFlow: Error showing recording indicator:", error);
+        });
+        // Also start step counter sync for restored recording state
+        this.startStepCounterSync();
       }
     } catch (error) {
       console.error("AutoFlow: Failed to initialize recording state:", error);
@@ -217,7 +222,12 @@ class AutoFlowContentScript {
     });
 
     // Show visual indicator
-    this.showRecordingIndicator();
+    this.showRecordingIndicator().catch((error) => {
+      console.error("AutoFlow: Error showing recording indicator:", error);
+    });
+
+    // Start periodic step counter sync
+    this.startStepCounterSync();
 
     // Record initial page state
     await this.recordPageLoad();
@@ -239,6 +249,9 @@ class AutoFlowContentScript {
     // Hide visual indicator
     this.hideRecordingIndicator();
 
+    // Stop periodic step counter sync
+    this.stopStepCounterSync();
+
     console.log("AutoFlow: Recording stopped for session:", sessionId);
   }
 
@@ -256,8 +269,20 @@ class AutoFlowContentScript {
     if (element.closest(".autoflow-recording-indicator")) return;
 
     try {
+      // Highlight the clicked element
+      this.highlightElement(element);
+
       const step = await this.createTraceStep(element, "click", event);
       await this.saveTraceStep(step);
+
+      // Update visual feedback
+      this.updateStepCounter();
+
+      console.log("AutoFlow: Click recorded:", {
+        element: element.tagName,
+        text: element.textContent?.slice(0, 50),
+        step: this.stepCounter,
+      });
     } catch (error) {
       console.error("AutoFlow: Error recording click event:", error);
     }
@@ -285,8 +310,21 @@ class AutoFlowContentScript {
     if (element.type && !recordableTypes.includes(element.type)) return;
 
     try {
+      // Highlight the input element
+      this.highlightElement(element);
+
       const step = await this.createTraceStep(element, "input", event);
       await this.saveTraceStep(step);
+
+      // Update visual feedback
+      this.updateStepCounter();
+
+      console.log("AutoFlow: Input recorded:", {
+        element: element.tagName,
+        type: element.type,
+        placeholder: element.placeholder,
+        step: this.stepCounter,
+      });
     } catch (error) {
       console.error("AutoFlow: Error recording input event:", error);
     }
@@ -595,7 +633,7 @@ class AutoFlowContentScript {
         step,
       });
 
-      this.stepCounter++;
+      // Don't increment local counter - background script is the source of truth
       console.log("AutoFlow: Step recorded:", step);
     } catch (error) {
       console.error("AutoFlow: Error saving trace step:", error);
@@ -665,55 +703,161 @@ class AutoFlowContentScript {
   }
 
   /**
-   * Show visual recording indicator
+   * Show visual recording indicator with step counter
    * @private
    */
-  private showRecordingIndicator(): void {
+  private async showRecordingIndicator(): Promise<void> {
     // Remove existing indicator if present
     this.hideRecordingIndicator();
+
+    // Get the real step count from background script
+    let realStepCount = 0;
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "GET_RECORDING_STATE",
+      });
+      realStepCount = response?.stepCount || 0;
+      this.stepCounter = realStepCount; // Sync local counter
+    } catch (error) {
+      console.warn(
+        "AutoFlow: Could not get step count from background, using local count"
+      );
+      realStepCount = this.stepCounter;
+    }
 
     const indicator = document.createElement("div");
     indicator.className = "autoflow-recording-indicator";
     indicator.innerHTML = `
-      <div style="
+      <div id="autoflow-indicator" style="
         position: fixed;
         top: 20px;
         right: 20px;
-        background: #ef4444;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
         color: white;
-        padding: 8px 16px;
-        border-radius: 20px;
+        padding: 12px 16px;
+        border-radius: 24px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
         z-index: 999999;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
       ">
         <div style="
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           background: white;
           border-radius: 50%;
-          animation: pulse 1s infinite;
+          animation: pulse 1.5s infinite;
         "></div>
-        Recording
+        <span id="autoflow-status">Recording</span>
+        <div style="
+          background: rgba(255, 255, 255, 0.2);
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 700;
+        ">
+          <span id="autoflow-step-count">${realStepCount}</span> steps
+        </div>
       </div>
     `;
 
-    // Add animation styles
+    // Add enhanced animation styles
     const style = document.createElement("style");
+    style.id = "autoflow-indicator-styles";
     style.textContent = `
       @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        0%, 100% { 
+          opacity: 1; 
+          transform: scale(1);
+        }
+        50% { 
+          opacity: 0.7; 
+          transform: scale(1.1);
+        }
+      }
+      
+      @keyframes stepHighlight {
+        0% { 
+          box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+        }
+        50% { 
+          box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.6);
+        }
+        100% { 
+          box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+        }
+      }
+      
+      .autoflow-element-highlight {
+        outline: 2px solid #22c55e !important;
+        outline-offset: 1px !important;
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3) !important;
+        animation: stepHighlight 0.4s ease-out !important;
+        transition: box-shadow 0.2s ease !important;
       }
     `;
     document.head.appendChild(style);
 
     document.body.appendChild(indicator);
+  }
+
+  /**
+   * Update the step counter in the recording indicator with real count from background
+   * @private
+   */
+  private async updateStepCounter(): Promise<void> {
+    try {
+      // Get the real step count from background script
+      const response = await chrome.runtime.sendMessage({
+        type: "GET_RECORDING_STATE",
+      });
+      const realStepCount = response?.stepCount || 0;
+
+      const stepCountElement = document.getElementById("autoflow-step-count");
+      if (stepCountElement) {
+        stepCountElement.textContent = realStepCount.toString();
+
+        // Add a brief highlight animation to show activity
+        const indicator = document.getElementById("autoflow-indicator");
+        if (indicator) {
+          indicator.style.transform = "scale(1.05)";
+          setTimeout(() => {
+            indicator.style.transform = "scale(1)";
+          }, 200);
+        }
+      }
+
+      // Update local counter to match (for any other uses)
+      this.stepCounter = realStepCount;
+    } catch (error) {
+      console.error("AutoFlow: Error updating step counter:", error);
+      // Fallback to local counter if background communication fails
+      const stepCountElement = document.getElementById("autoflow-step-count");
+      if (stepCountElement) {
+        stepCountElement.textContent = this.stepCounter.toString();
+      }
+    }
+  }
+
+  /**
+   * Highlight an element briefly to show it was recorded
+   * @param element - Element to highlight
+   * @private
+   */
+  private highlightElement(element: Element): void {
+    // Add highlight class
+    element.classList.add("autoflow-element-highlight");
+
+    // Remove highlight after animation (shorter duration)
+    setTimeout(() => {
+      element.classList.remove("autoflow-element-highlight");
+    }, 400);
   }
 
   /**
@@ -724,6 +868,39 @@ class AutoFlowContentScript {
     const indicator = document.querySelector(".autoflow-recording-indicator");
     if (indicator) {
       indicator.remove();
+    }
+
+    // Also remove the styles
+    const styles = document.getElementById("autoflow-indicator-styles");
+    if (styles) {
+      styles.remove();
+    }
+  }
+
+  /**
+   * Start periodic step counter synchronization with background script
+   * @private
+   */
+  private startStepCounterSync(): void {
+    // Clear any existing interval
+    this.stopStepCounterSync();
+
+    // Sync every 2 seconds to keep the counter accurate
+    this.stepCounterSyncInterval = setInterval(async () => {
+      if (this.isRecording) {
+        await this.updateStepCounter();
+      }
+    }, 2000);
+  }
+
+  /**
+   * Stop periodic step counter synchronization
+   * @private
+   */
+  private stopStepCounterSync(): void {
+    if (this.stepCounterSyncInterval) {
+      clearInterval(this.stepCounterSyncInterval);
+      this.stepCounterSyncInterval = null;
     }
   }
 }

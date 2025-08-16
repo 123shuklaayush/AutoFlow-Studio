@@ -4,10 +4,13 @@
  * @author Ayush Shukla
  * @description Central route setup following RESTful conventions and modular architecture
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupRoutes = setupRoutes;
 const workflow_routes_1 = require("./workflow-routes");
-const session_routes_1 = require("./session-routes");
+const session_routes_1 = __importDefault(require("./session-routes"));
 const auth_routes_1 = require("./auth-routes");
 const compiler_routes_1 = require("./compiler-routes");
 const execution_routes_1 = require("./execution-routes");
@@ -27,7 +30,7 @@ function setupRoutes(app) {
     // Core workflow management routes
     app.use(`${API_BASE}/workflows`, workflow_routes_1.workflowRoutes);
     // Recording session routes
-    app.use(`${API_BASE}/sessions`, session_routes_1.sessionRoutes);
+    app.use(`${API_BASE}/sessions`, session_routes_1.default);
     // Workflow compilation routes
     app.use(`${API_BASE}/compile`, compiler_routes_1.compilerRoutes);
     // Workflow execution routes

@@ -452,7 +452,18 @@ class AutoFlowBackground {
       // Save updated state
       await this.saveState();
 
-      // Optionally save to persistent storage in batches
+      // Save to Firebase backend immediately for real-time demo
+      try {
+        await this.saveStepToFirebase(step);
+        console.log("AutoFlow Background: Step saved to Firebase:", step.id);
+      } catch (firebaseError) {
+        console.warn(
+          "AutoFlow Background: Firebase save failed, continuing with local storage:",
+          firebaseError
+        );
+      }
+
+      // Also save to local storage in batches as backup
       if (this.state.currentSteps.length % 5 === 0) {
         await this.saveSessionData({
           sessionId: this.state.currentSessionId,
@@ -467,6 +478,41 @@ class AutoFlowBackground {
       return { success: true, stepIndex: this.state.currentSteps.length - 1 };
     } catch (error) {
       console.error("AutoFlow Background: Error saving trace step:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save trace step to Firebase backend
+   * @param step - Trace step to save
+   * @returns Promise resolving when save is complete
+   * @private
+   */
+  private async saveStepToFirebase(step: TraceStep): Promise<void> {
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/v1/sessions/steps",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: this.state.currentSessionId,
+            step: step,
+            timestamp: Date.now(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("AutoFlow Background: Firebase save successful:", result);
+    } catch (error) {
+      console.error("AutoFlow Background: Firebase save error:", error);
       throw error;
     }
   }

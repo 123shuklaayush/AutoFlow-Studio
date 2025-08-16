@@ -15,6 +15,7 @@ declare class AutoFlowContentScript {
     private screenshotCapture;
     private eventRecorder;
     private stepCounter;
+    private stepCounterSyncInterval;
     /**
      * Initialize the content script with all dependencies
      */
@@ -161,14 +162,35 @@ declare class AutoFlowContentScript {
      */
     private generateDOMHash;
     /**
-     * Show visual recording indicator
+     * Show visual recording indicator with step counter
      * @private
      */
     private showRecordingIndicator;
+    /**
+     * Update the step counter in the recording indicator with real count from background
+     * @private
+     */
+    private updateStepCounter;
+    /**
+     * Highlight an element briefly to show it was recorded
+     * @param element - Element to highlight
+     * @private
+     */
+    private highlightElement;
     /**
      * Hide visual recording indicator
      * @private
      */
     private hideRecordingIndicator;
+    /**
+     * Start periodic step counter synchronization with background script
+     * @private
+     */
+    private startStepCounterSync;
+    /**
+     * Stop periodic step counter synchronization
+     * @private
+     */
+    private stopStepCounterSync;
 }
 export default AutoFlowContentScript;

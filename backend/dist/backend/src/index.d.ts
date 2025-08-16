@@ -4,7 +4,7 @@
  * @description Express server with TypeScript, following SOLID principles
  * and clean architecture patterns for maintainable and scalable code.
  */
-import express from 'express';
+import express from "express";
 /**
  * Main application class following Single Responsibility Principle
  * Handles server lifecycle and dependency injection
@@ -38,6 +38,10 @@ declare class AutoFlowServer {
      * @private
      */
     private initializeServices;
+    /**
+     * Validate server is actually accessible
+     */
+    private validateServerStatus;
     /**
      * Start the Express server and all associated services
      */

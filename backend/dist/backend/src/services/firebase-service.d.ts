@@ -3,8 +3,8 @@
  * @author Ayush Shukla
  * @description Firebase Admin SDK setup for AutoFlow Studio backend
  */
-import { Firestore } from 'firebase-admin/firestore';
-import { Storage } from 'firebase-admin/storage';
+import { Firestore } from "firebase-admin/firestore";
+import { Storage } from "firebase-admin/storage";
 /**
  * Firebase service class following Singleton pattern
  */

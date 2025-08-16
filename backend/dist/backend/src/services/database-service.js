@@ -6,6 +6,8 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DatabaseService = void 0;
+exports.setDatabaseService = setDatabaseService;
+exports.getDatabaseService = getDatabaseService;
 const firebase_service_1 = require("./firebase-service");
 const simple_logger_1 = require("../utils/simple-logger");
 /**
@@ -22,16 +24,17 @@ class DatabaseService {
      */
     async initialize() {
         if (this.initialized) {
-            simple_logger_1.logger.debug('Database service already initialized');
+            simple_logger_1.logger.debug("Database service already initialized");
             return;
         }
         try {
+            simple_logger_1.logger.info("🔥 Initializing REAL Firebase database service");
             this.firestore = (0, firebase_service_1.getFirestoreInstance)();
             this.initialized = true;
-            simple_logger_1.logger.info('✅ Database service initialized');
+            simple_logger_1.logger.info("✅ Real Firebase database service initialized");
         }
         catch (error) {
-            simple_logger_1.logger.error('❌ Failed to initialize database service:', error);
+            simple_logger_1.logger.error("❌ Failed to initialize database service:", error);
             throw error;
         }
     }
@@ -41,7 +44,7 @@ class DatabaseService {
      */
     getFirestore() {
         if (!this.firestore || !this.initialized) {
-            throw new Error('Database service not initialized');
+            throw new Error("Database service not initialized");
         }
         return this.firestore;
     }
@@ -59,7 +62,7 @@ class DatabaseService {
             const docData = {
                 ...data,
                 createdAt: timestamp,
-                updatedAt: timestamp
+                updatedAt: timestamp,
             };
             let docRef;
             if (docId) {
@@ -69,11 +72,11 @@ class DatabaseService {
             else {
                 docRef = await db.collection(collection).add(docData);
             }
-            simple_logger_1.logger.debug(`Document created in ${collection}:`, docRef.id);
+            simple_logger_1.logger.debug(`✅ Real document created in ${collection}:`, docRef.id);
             return docRef.id;
         }
         catch (error) {
-            simple_logger_1.logger.error(`Error creating document in ${collection}:`, error);
+            simple_logger_1.logger.error(`❌ Error creating document in ${collection}:`, error);
             throw error;
         }
     }
@@ -109,7 +112,7 @@ class DatabaseService {
             const db = this.getFirestore();
             const updateData = {
                 ...data,
-                updatedAt: new Date()
+                updatedAt: new Date(),
             };
             await db.collection(collection).doc(docId).update(updateData);
             simple_logger_1.logger.debug(`Document updated in ${collection}:`, docId);
@@ -156,7 +159,7 @@ class DatabaseService {
             }
             // Apply ordering
             if (options.orderBy) {
-                query = query.orderBy(options.orderBy, options.orderDirection || 'asc');
+                query = query.orderBy(options.orderBy, options.orderDirection || "asc");
             }
             // Apply pagination
             if (options.offset) {
@@ -168,8 +171,9 @@ class DatabaseService {
             const snapshot = await query.get();
             const documents = snapshot.docs.map((doc) => ({
                 id: doc.id,
-                ...doc.data()
+                ...doc.data(),
             }));
+            simple_logger_1.logger.debug(`✅ Found ${documents.length} real documents in ${collection}`);
             return documents;
         }
         catch (error) {
@@ -232,20 +236,20 @@ class DatabaseService {
                     ? db.collection(operation.collection).doc(operation.docId)
                     : db.collection(operation.collection).doc();
                 switch (operation.type) {
-                    case 'create':
+                    case "create":
                         batch.set(docRef, {
                             ...operation.data,
                             createdAt: new Date(),
-                            updatedAt: new Date()
+                            updatedAt: new Date(),
                         });
                         break;
-                    case 'update':
+                    case "update":
                         batch.update(docRef, {
                             ...operation.data,
-                            updatedAt: new Date()
+                            updatedAt: new Date(),
                         });
                         break;
-                    case 'delete':
+                    case "delete":
                         batch.delete(docRef);
                         break;
                 }
@@ -255,7 +259,7 @@ class DatabaseService {
             return true;
         }
         catch (error) {
-            simple_logger_1.logger.error('Error executing batch operation:', error);
+            simple_logger_1.logger.error("Error executing batch operation:", error);
             throw error;
         }
     }
@@ -270,7 +274,7 @@ class DatabaseService {
             return await db.runTransaction(callback);
         }
         catch (error) {
-            simple_logger_1.logger.error('Error executing transaction:', error);
+            simple_logger_1.logger.error("Error executing transaction:", error);
             throw error;
         }
     }
@@ -281,7 +285,7 @@ class DatabaseService {
         if (this.initialized) {
             this.firestore = null;
             this.initialized = false;
-            simple_logger_1.logger.info('✅ Database service disconnected');
+            simple_logger_1.logger.info("✅ Database service disconnected");
         }
     }
     /**
@@ -292,4 +296,21 @@ class DatabaseService {
     }
 }
 exports.DatabaseService = DatabaseService;
+// Global shared instance
+let globalDatabaseService = null;
+/**
+ * Set the global database service instance (called from main server)
+ */
+function setDatabaseService(instance) {
+    globalDatabaseService = instance;
+}
+/**
+ * Get the shared database service instance
+ */
+function getDatabaseService() {
+    if (!globalDatabaseService) {
+        throw new Error("Database service not initialized. Call setDatabaseService() first.");
+    }
+    return globalDatabaseService;
+}
 //# sourceMappingURL=database-service.js.map

@@ -59,7 +59,7 @@ export declare class DatabaseService {
         limit?: number;
         offset?: number;
         orderBy?: string;
-        orderDirection?: 'asc' | 'desc';
+        orderDirection?: "asc" | "desc";
         where?: Array<{
             field: string;
             operator: any;
@@ -90,7 +90,7 @@ export declare class DatabaseService {
      * @returns Success boolean
      */
     batch(operations: Array<{
-        type: 'create' | 'update' | 'delete';
+        type: "create" | "update" | "delete";
         collection: string;
         docId?: string;
         data?: any;
@@ -110,4 +110,12 @@ export declare class DatabaseService {
      */
     isConnected(): boolean;
 }
+/**
+ * Set the global database service instance (called from main server)
+ */
+export declare function setDatabaseService(instance: DatabaseService): void;
+/**
+ * Get the shared database service instance
+ */
+export declare function getDatabaseService(): DatabaseService;
 //# sourceMappingURL=database-service.d.ts.map
