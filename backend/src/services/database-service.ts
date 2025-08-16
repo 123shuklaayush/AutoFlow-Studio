@@ -4,10 +4,10 @@
  * @description Provides database operations with Firebase Firestore backend
  */
 
-import { Firestore } from 'firebase-admin/firestore';
-import { getFirestoreInstance } from './firebase-service';
-import { logger } from '../utils/simple-logger';
-import { Workflow } from '@shared/types/core';
+import { Firestore } from "firebase-admin/firestore";
+import { getFirestoreInstance } from "./firebase-service";
+import { logger } from "../utils/simple-logger";
+import { Workflow } from "@shared/types/core";
 
 /**
  * Database service class providing CRUD operations
@@ -22,29 +22,17 @@ export class DatabaseService {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      logger.debug('Database service already initialized');
+      logger.debug("Database service already initialized");
       return;
     }
 
     try {
-      // Check if Firebase is in mock mode
-      const config = require('../utils/environment').getDatabaseConfig();
-      const isMockMode = config.projectId === 'demo-project' || 
-                        config.privateKey.includes('DEMO') ||
-                        config.privateKey === 'demo-key-replace-with-real-key';
-
-      if (isMockMode) {
-        logger.warn('🚧 Database service running in MOCK mode');
-        this.initialized = true;
-        logger.info('✅ Mock database service initialized');
-        return;
-      }
-
+      logger.info("🔥 Initializing REAL Firebase database service");
       this.firestore = getFirestoreInstance();
       this.initialized = true;
-      logger.info('✅ Database service initialized');
+      logger.info("✅ Real Firebase database service initialized");
     } catch (error) {
-      logger.error('❌ Failed to initialize database service:', error);
+      logger.error("❌ Failed to initialize database service:", error);
       throw error;
     }
   }
@@ -55,7 +43,7 @@ export class DatabaseService {
    */
   private getFirestore(): Firestore {
     if (!this.firestore || !this.initialized) {
-      throw new Error('Database service not initialized');
+      throw new Error("Database service not initialized");
     }
     return this.firestore;
   }
@@ -69,20 +57,13 @@ export class DatabaseService {
    */
   async create(collection: string, data: any, docId?: string): Promise<string> {
     try {
-      // Mock mode - return fake ID
-      if (!this.firestore) {
-        const mockId = docId || `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        logger.debug(`[MOCK] Document created in ${collection}:`, mockId);
-        return mockId;
-      }
-
       const db = this.getFirestore();
       const timestamp = new Date();
-      
+
       const docData = {
         ...data,
         createdAt: timestamp,
-        updatedAt: timestamp
+        updatedAt: timestamp,
       };
 
       let docRef;
@@ -93,11 +74,10 @@ export class DatabaseService {
         docRef = await db.collection(collection).add(docData);
       }
 
-      logger.debug(`Document created in ${collection}:`, docRef.id);
+      logger.debug(`✅ Real document created in ${collection}:`, docRef.id);
       return docRef.id;
-
     } catch (error) {
-      logger.error(`Error creating document in ${collection}:`, error);
+      logger.error(`❌ Error creating document in ${collection}:`, error);
       throw error;
     }
   }
@@ -118,7 +98,6 @@ export class DatabaseService {
       }
 
       return { id: doc.id, ...doc.data() };
-
     } catch (error) {
       logger.error(`Error reading document from ${collection}:`, error);
       throw error;
@@ -137,13 +116,12 @@ export class DatabaseService {
       const db = this.getFirestore();
       const updateData = {
         ...data,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       await db.collection(collection).doc(docId).update(updateData);
       logger.debug(`Document updated in ${collection}:`, docId);
       return true;
-
     } catch (error) {
       logger.error(`Error updating document in ${collection}:`, error);
       throw error;
@@ -162,7 +140,6 @@ export class DatabaseService {
       await db.collection(collection).doc(docId).delete();
       logger.debug(`Document deleted from ${collection}:`, docId);
       return true;
-
     } catch (error) {
       logger.error(`Error deleting document from ${collection}:`, error);
       throw error;
@@ -175,46 +152,34 @@ export class DatabaseService {
    * @param options - Query options
    * @returns Array of documents
    */
-  async list(collection: string, options: {
-    limit?: number;
-    offset?: number;
-    orderBy?: string;
-    orderDirection?: 'asc' | 'desc';
-    where?: Array<{ field: string; operator: any; value: any }>;
-  } = {}): Promise<any[]> {
+  async list(
+    collection: string,
+    options: {
+      limit?: number;
+      offset?: number;
+      orderBy?: string;
+      orderDirection?: "asc" | "desc";
+      where?: Array<{ field: string; operator: any; value: any }>;
+    } = {}
+  ): Promise<any[]> {
     try {
-      // Mock mode - return sample data
-      if (!this.firestore) {
-        logger.debug(`[MOCK] Listing documents from ${collection}`);
-        return [
-          {
-            id: `mock_${collection}_1`,
-            name: `Sample ${collection} 1`,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          },
-          {
-            id: `mock_${collection}_2`, 
-            name: `Sample ${collection} 2`,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }
-        ];
-      }
-
       const db = this.getFirestore();
       let query: any = db.collection(collection);
 
       // Apply where clauses
       if (options.where) {
         for (const condition of options.where) {
-          query = query.where(condition.field, condition.operator, condition.value);
+          query = query.where(
+            condition.field,
+            condition.operator,
+            condition.value
+          );
         }
       }
 
       // Apply ordering
       if (options.orderBy) {
-        query = query.orderBy(options.orderBy, options.orderDirection || 'asc');
+        query = query.orderBy(options.orderBy, options.orderDirection || "asc");
       }
 
       // Apply pagination
@@ -229,11 +194,13 @@ export class DatabaseService {
       const snapshot = await query.get();
       const documents = snapshot.docs.map((doc: any) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
 
+      logger.debug(
+        `✅ Found ${documents.length} real documents in ${collection}`
+      );
       return documents;
-
     } catch (error) {
       logger.error(`Error listing documents from ${collection}:`, error);
       throw error;
@@ -246,27 +213,27 @@ export class DatabaseService {
    * @param where - Optional where conditions
    * @returns Document count
    */
-  async count(collection: string, where?: Array<{ field: string; operator: any; value: any }>): Promise<number> {
+  async count(
+    collection: string,
+    where?: Array<{ field: string; operator: any; value: any }>
+  ): Promise<number> {
     try {
-      // Mock mode - return sample count
-      if (!this.firestore) {
-        logger.debug(`[MOCK] Counting documents in ${collection}`);
-        return 2; // Mock count
-      }
-
       const db = this.getFirestore();
       let query: any = db.collection(collection);
 
       // Apply where clauses
       if (where) {
         for (const condition of where) {
-          query = query.where(condition.field, condition.operator, condition.value);
+          query = query.where(
+            condition.field,
+            condition.operator,
+            condition.value
+          );
         }
       }
 
       const snapshot = await query.count().get();
       return snapshot.data().count;
-
     } catch (error) {
       logger.error(`Error counting documents in ${collection}:`, error);
       throw error;
@@ -284,9 +251,11 @@ export class DatabaseService {
       const db = this.getFirestore();
       const doc = await db.collection(collection).doc(docId).get();
       return doc.exists;
-
     } catch (error) {
-      logger.error(`Error checking if document exists in ${collection}:`, error);
+      logger.error(
+        `Error checking if document exists in ${collection}:`,
+        error
+      );
       throw error;
     }
   }
@@ -296,49 +265,52 @@ export class DatabaseService {
    * @param operations - Array of operations
    * @returns Success boolean
    */
-  async batch(operations: Array<{
-    type: 'create' | 'update' | 'delete';
-    collection: string;
-    docId?: string;
-    data?: any;
-  }>): Promise<boolean> {
+  async batch(
+    operations: Array<{
+      type: "create" | "update" | "delete";
+      collection: string;
+      docId?: string;
+      data?: any;
+    }>
+  ): Promise<boolean> {
     try {
       const db = this.getFirestore();
       const batch = db.batch();
 
       for (const operation of operations) {
-        const docRef = operation.docId 
+        const docRef = operation.docId
           ? db.collection(operation.collection).doc(operation.docId)
           : db.collection(operation.collection).doc();
 
         switch (operation.type) {
-          case 'create':
+          case "create":
             batch.set(docRef, {
               ...operation.data,
               createdAt: new Date(),
-              updatedAt: new Date()
+              updatedAt: new Date(),
             });
             break;
 
-          case 'update':
+          case "update":
             batch.update(docRef, {
               ...operation.data,
-              updatedAt: new Date()
+              updatedAt: new Date(),
             });
             break;
 
-          case 'delete':
+          case "delete":
             batch.delete(docRef);
             break;
         }
       }
 
       await batch.commit();
-      logger.debug(`Batch operation completed with ${operations.length} operations`);
+      logger.debug(
+        `Batch operation completed with ${operations.length} operations`
+      );
       return true;
-
     } catch (error) {
-      logger.error('Error executing batch operation:', error);
+      logger.error("Error executing batch operation:", error);
       throw error;
     }
   }
@@ -352,9 +324,8 @@ export class DatabaseService {
     try {
       const db = this.getFirestore();
       return await db.runTransaction(callback);
-
     } catch (error) {
-      logger.error('Error executing transaction:', error);
+      logger.error("Error executing transaction:", error);
       throw error;
     }
   }
@@ -366,7 +337,7 @@ export class DatabaseService {
     if (this.initialized) {
       this.firestore = null;
       this.initialized = false;
-      logger.info('✅ Database service disconnected');
+      logger.info("✅ Database service disconnected");
     }
   }
 
@@ -376,4 +347,26 @@ export class DatabaseService {
   isConnected(): boolean {
     return this.initialized && this.firestore !== null;
   }
+}
+
+// Global shared instance
+let globalDatabaseService: DatabaseService | null = null;
+
+/**
+ * Set the global database service instance (called from main server)
+ */
+export function setDatabaseService(instance: DatabaseService): void {
+  globalDatabaseService = instance;
+}
+
+/**
+ * Get the shared database service instance
+ */
+export function getDatabaseService(): DatabaseService {
+  if (!globalDatabaseService) {
+    throw new Error(
+      "Database service not initialized. Call setDatabaseService() first."
+    );
+  }
+  return globalDatabaseService;
 }

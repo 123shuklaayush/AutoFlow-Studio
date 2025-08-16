@@ -4,11 +4,16 @@
  * @description Firebase Admin SDK setup for AutoFlow Studio backend
  */
 
-import { initializeApp, getApps, cert, ServiceAccount } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { getStorage, Storage } from 'firebase-admin/storage';
-import { logger } from '../utils/simple-logger';
-import { getDatabaseConfig } from '../utils/environment';
+import {
+  initializeApp,
+  getApps,
+  cert,
+  ServiceAccount,
+} from "firebase-admin/app";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { getStorage, Storage } from "firebase-admin/storage";
+import { logger } from "../utils/simple-logger";
+import { getDatabaseConfig } from "../utils/environment";
 
 /**
  * Firebase service class following Singleton pattern
@@ -39,29 +44,34 @@ class FirebaseService {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      logger.debug('Firebase already initialized');
+      logger.debug("Firebase already initialized");
       return;
     }
 
     try {
-      logger.info('Initializing Firebase Admin SDK...');
+      logger.info("Initializing Firebase Admin SDK...");
 
       // Get configuration from environment
       const config = getDatabaseConfig();
 
-      // Check if we're in development mode with dummy credentials
-      if (config.privateKey === 'demo-key-replace-with-real-key' || 
-          config.projectId === 'demo-project' ||
-          config.privateKey.includes('DEMO') ||
-          process.env.NODE_ENV === 'development' && config.privateKey.length < 100) {
-        
-        logger.warn('🚧 Running in DEVELOPMENT mode - Firebase disabled');
-        logger.warn('⚠️  Using mock Firebase service (database operations will be simulated)');
-        
-        // Set up mock services
-        this.initialized = true;
-        logger.info('✅ Mock Firebase service initialized for development');
-        return;
+      // Check if we have real credentials
+      if (
+        config.privateKey === "demo-key-replace-with-real-key" ||
+        config.projectId === "demo-project" ||
+        config.privateKey.includes("DEMO") ||
+        config.privateKey.includes("PLEASE_GENERATE_SERVICE_ACCOUNT_KEY")
+      ) {
+        throw new Error(`
+❌ FIREBASE SETUP ERROR: Using dummy credentials!
+
+Please set up real Firebase credentials:
+1. Download service account key from Firebase Console
+2. Set FIREBASE_PROJECT_ID=${config.projectId}
+3. Set FIREBASE_PRIVATE_KEY="your-real-private-key"  
+4. Set FIREBASE_CLIENT_EMAIL="your-real-client-email"
+
+Current values are dummy/placeholder values.
+        `);
       }
 
       // Check if Firebase app is already initialized
@@ -70,34 +80,35 @@ class FirebaseService {
         const serviceAccount: ServiceAccount = {
           projectId: config.projectId,
           privateKey: config.privateKey,
-          clientEmail: config.clientEmail
+          clientEmail: config.clientEmail,
         };
 
         // Initialize Firebase Admin SDK
         initializeApp({
           credential: cert(serviceAccount),
           projectId: config.projectId,
-          storageBucket: `${config.projectId}.appspot.com`
+          storageBucket: `${config.projectId}.appspot.com`,
         });
       }
 
       // Initialize Firestore
       this.firestore = getFirestore();
-      
+
       // Configure Firestore settings
       this.firestore.settings({
-        ignoreUndefinedProperties: true
+        ignoreUndefinedProperties: true,
       });
 
       // Initialize Storage
       this.storage = getStorage();
 
       this.initialized = true;
-      logger.info('✅ Firebase Admin SDK initialized successfully');
-
+      logger.info("✅ Firebase Admin SDK initialized successfully");
     } catch (error: any) {
-      logger.error('❌ Failed to initialize Firebase Admin SDK:', error);
-      throw new Error(`Firebase initialization failed: ${error?.message || 'Unknown error'}`);
+      logger.error("❌ Failed to initialize Firebase Admin SDK:", error);
+      throw new Error(
+        `Firebase initialization failed: ${error?.message || "Unknown error"}`
+      );
     }
   }
 
@@ -106,7 +117,7 @@ class FirebaseService {
    */
   getFirestore(): Firestore {
     if (!this.firestore || !this.initialized) {
-      throw new Error('Firebase not initialized. Call initialize() first.');
+      throw new Error("Firebase not initialized. Call initialize() first.");
     }
     return this.firestore;
   }
@@ -116,7 +127,7 @@ class FirebaseService {
    */
   getStorage(): Storage {
     if (!this.storage || !this.initialized) {
-      throw new Error('Firebase not initialized. Call initialize() first.');
+      throw new Error("Firebase not initialized. Call initialize() first.");
     }
     return this.storage;
   }
@@ -138,22 +149,21 @@ class FirebaseService {
       }
 
       // Test Firestore connection by writing and reading a test document
-      const testDoc = this.firestore!.collection('_test').doc('connection');
+      const testDoc = this.firestore!.collection("_test").doc("connection");
       await testDoc.set({ timestamp: new Date(), test: true });
-      
+
       const testRead = await testDoc.get();
       if (!testRead.exists) {
-        throw new Error('Test document not found after write');
+        throw new Error("Test document not found after write");
       }
 
       // Clean up test document
       await testDoc.delete();
 
-      logger.info('✅ Firebase connection test successful');
+      logger.info("✅ Firebase connection test successful");
       return true;
-
     } catch (error) {
-      logger.error('❌ Firebase connection test failed:', error);
+      logger.error("❌ Firebase connection test failed:", error);
       return false;
     }
   }
@@ -164,28 +174,33 @@ class FirebaseService {
   async getDatabaseStats(): Promise<any> {
     try {
       const firestore = this.getFirestore();
-      
+
       // Count documents in main collections
-      const collections = ['users', 'workflows', 'sessions', 'executions'];
+      const collections = ["users", "workflows", "sessions", "executions"];
       const stats: any = {
         timestamp: new Date().toISOString(),
-        collections: {}
+        collections: {},
       };
 
       for (const collectionName of collections) {
         try {
-          const snapshot = await firestore.collection(collectionName).count().get();
+          const snapshot = await firestore
+            .collection(collectionName)
+            .count()
+            .get();
           stats.collections[collectionName] = snapshot.data().count;
         } catch (error) {
-          logger.warn(`Could not get stats for collection ${collectionName}:`, error);
-          stats.collections[collectionName] = 'unavailable';
+          logger.warn(
+            `Could not get stats for collection ${collectionName}:`,
+            error
+          );
+          stats.collections[collectionName] = "unavailable";
         }
       }
 
       return stats;
-
     } catch (error) {
-      logger.error('Error getting database stats:', error);
+      logger.error("Error getting database stats:", error);
       throw error;
     }
   }

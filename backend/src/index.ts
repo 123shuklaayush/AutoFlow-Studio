@@ -5,19 +5,19 @@
  * and clean architecture patterns for maintainable and scalable code.
  */
 
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import dotenv from 'dotenv';
-import { Server } from 'http';
-import { setupRoutes } from './routes';
-import { errorHandler, notFoundHandler } from './middleware/error-handler';
-import { setupFirebase } from './services/firebase-service';
-import { logger } from './utils/simple-logger';
-import { validateEnvironment } from './utils/environment';
-import { DatabaseService } from './services/database-service';
-import { setupWebSocket } from './services/websocket-service';
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import dotenv from "dotenv";
+import { Server } from "http";
+import { setupRoutes } from "./routes";
+import { errorHandler, notFoundHandler } from "./middleware/error-handler";
+import { setupFirebase } from "./services/firebase-service";
+import { logger } from "./utils/simple-logger";
+import { validateEnvironment } from "./utils/environment";
+import { DatabaseService } from "./services/database-service";
+import { setupWebSocket } from "./services/websocket-service";
 
 // Load environment variables
 dotenv.config();
@@ -37,9 +37,9 @@ class AutoFlowServer {
    */
   constructor() {
     this.app = express();
-    this.port = parseInt(process.env.PORT || '3000', 10);
+    this.port = parseInt(process.env.PORT || "3000", 10);
     this.databaseService = new DatabaseService();
-    
+
     this.initializeMiddleware();
     this.initializeRoutes();
     this.initializeErrorHandling();
@@ -51,74 +51,89 @@ class AutoFlowServer {
    */
   private initializeMiddleware(): void {
     // Security middleware
-    this.app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'", "https://api.openai.com", "https://generativelanguage.googleapis.com"]
-        }
-      },
-      crossOriginEmbedderPolicy: false
-    }));
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: [
+              "'self'",
+              "https://api.openai.com",
+              "https://generativelanguage.googleapis.com",
+            ],
+          },
+        },
+        crossOriginEmbedderPolicy: false,
+      })
+    );
 
     // CORS configuration for Chrome extension and web UI
-    this.app.use(cors({
-      origin: (origin, callback) => {
-        // Allow Chrome extension and localhost for development
-        const allowedOrigins = [
-          /^chrome-extension:\/\/.*$/,
-          /^http:\/\/localhost:\d+$/,
-          /^https:\/\/localhost:\d+$/,
-          process.env.FRONTEND_URL
-        ].filter(Boolean);
+    this.app.use(
+      cors({
+        origin: (origin, callback) => {
+          // Allow Chrome extension and localhost for development
+          const allowedOrigins = [
+            /^chrome-extension:\/\/.*$/,
+            /^http:\/\/localhost:\d+$/,
+            /^https:\/\/localhost:\d+$/,
+            process.env.FRONTEND_URL,
+          ].filter(Boolean);
 
-        if (!origin || allowedOrigins.some(pattern => 
-          typeof pattern === 'string' ? pattern === origin : (pattern as RegExp).test(origin)
-        )) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
-      },
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    }));
+          if (
+            !origin ||
+            allowedOrigins.some((pattern) =>
+              typeof pattern === "string"
+                ? pattern === origin
+                : (pattern as RegExp).test(origin)
+            )
+          ) {
+            callback(null, true);
+          } else {
+            callback(new Error("Not allowed by CORS"));
+          }
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+      })
+    );
 
     // Request parsing middleware
-    this.app.use(express.json({ limit: '50mb' })); // Large limit for screenshots
-    this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+    this.app.use(express.json({ limit: "50mb" })); // Large limit for screenshots
+    this.app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
     // Logging middleware
-    this.app.use(morgan('combined', {
-      stream: { write: (message) => logger.info(message.trim()) }
-    }));
+    this.app.use(
+      morgan("combined", {
+        stream: { write: (message) => logger.info(message.trim()) },
+      })
+    );
 
     // Health check endpoint
-    this.app.get('/health', (req, res) => {
+    this.app.get("/health", (req, res) => {
       res.json({
-        status: 'healthy',
+        status: "healthy",
         timestamp: new Date().toISOString(),
-        version: process.env.npm_package_version || '1.0.0',
-        environment: process.env.NODE_ENV || 'development'
+        version: process.env.npm_package_version || "1.0.0",
+        environment: process.env.NODE_ENV || "development",
       });
     });
 
     // API info endpoint
-    this.app.get('/', (req, res) => {
+    this.app.get("/", (req, res) => {
       res.json({
-        name: 'AutoFlow Studio API',
-        description: 'AI-Enhanced Browser Automation Platform API',
-        version: '1.0.0',
-        author: 'Ayush Shukla',
+        name: "AutoFlow Studio API",
+        description: "AI-Enhanced Browser Automation Platform API",
+        version: "1.0.0",
+        author: "Ayush Shukla",
         endpoints: {
-          health: '/health',
-          api: '/api/v1',
-          docs: '/api/v1/docs'
-        }
+          health: "/health",
+          api: "/api/v1",
+          docs: "/api/v1/docs",
+        },
       });
     });
   }
@@ -138,7 +153,7 @@ class AutoFlowServer {
   private initializeErrorHandling(): void {
     // 404 handler (must be before error handler)
     this.app.use(notFoundHandler);
-    
+
     // Global error handler (must be last)
     this.app.use(errorHandler);
   }
@@ -148,25 +163,81 @@ class AutoFlowServer {
    * @private
    */
   private async initializeServices(): Promise<void> {
-    logger.info('Initializing services...');
+    logger.info("Initializing services...");
 
     try {
       // Validate environment variables
       validateEnvironment();
-      
+
       // Initialize Firebase
       await setupFirebase();
-      logger.info('✅ Firebase initialized');
+      logger.info("✅ Firebase initialized");
 
       // Initialize Database service
       await this.databaseService.initialize();
-      logger.info('✅ Database service initialized');
+      logger.info("✅ Database service initialized");
 
-      logger.info('✅ All services initialized successfully');
+      // Set global database service for routes
+      const { setDatabaseService } = require("./services/database-service");
+      setDatabaseService(this.databaseService);
+
+      logger.info("✅ All services initialized successfully");
     } catch (error) {
-      logger.error('❌ Service initialization failed:', error);
+      logger.error("❌ Service initialization failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * Validate server is actually accessible
+   */
+  private validateServerStatus(): void {
+    // Wait a moment for server to be fully ready
+    setTimeout(async () => {
+      try {
+        const http = require("http");
+        const options = {
+          hostname: "localhost",
+          port: this.port,
+          path: "/health",
+          method: "GET",
+          timeout: 3000,
+        };
+
+        const req = http.request(options, (res: any) => {
+          if (res.statusCode === 200) {
+            logger.info("✅ SERVER VALIDATION: Server is responding correctly");
+            logger.info("🎯 STATUS: Ready for development and testing!");
+            logger.info(
+              '📋 TIP: Run "./check-server.sh" to validate all components'
+            );
+          } else {
+            logger.warn(
+              `⚠️  SERVER VALIDATION: Unexpected status code: ${res.statusCode}`
+            );
+          }
+          req.destroy(); // Clear timeout handler
+        });
+
+        req.setTimeout(3000);
+
+        req.on("error", (error: any) => {
+          logger.warn(
+            "⚠️  SERVER VALIDATION: Could not validate server status:",
+            error.message
+          );
+        });
+
+        req.on("timeout", () => {
+          logger.warn("⚠️  SERVER VALIDATION: Server validation timed out");
+          req.destroy();
+        });
+
+        req.end();
+      } catch (error) {
+        logger.warn("⚠️  SERVER VALIDATION: Error during validation:", error);
+      }
+    }, 500);
   }
 
   /**
@@ -183,18 +254,22 @@ class AutoFlowServer {
         logger.info(`🌐 Server running on port ${this.port}`);
         logger.info(`🔗 Health check: http://localhost:${this.port}/health`);
         logger.info(`📚 API Base URL: http://localhost:${this.port}/api/v1`);
-        logger.info(`🛡️  Environment: ${process.env.NODE_ENV || 'development'}`);
+        logger.info(
+          `🛡️  Environment: ${process.env.NODE_ENV || "development"}`
+        );
+
+        // Validate server is actually accessible
+        this.validateServerStatus();
       });
 
       // Set up WebSocket server for real-time communication
       setupWebSocket(this.server);
-      logger.info('🔌 WebSocket server initialized');
+      logger.info("🔌 WebSocket server initialized");
 
       // Handle server shutdown gracefully
       this.setupGracefulShutdown();
-
     } catch (error) {
-      logger.error('❌ Failed to start server:', error);
+      logger.error("❌ Failed to start server:", error);
       process.exit(1);
     }
   }
@@ -210,26 +285,26 @@ class AutoFlowServer {
       if (this.server) {
         this.server.close(async (err) => {
           if (err) {
-            logger.error('❌ Error during server shutdown:', err);
+            logger.error("❌ Error during server shutdown:", err);
             process.exit(1);
           }
 
           try {
             // Clean up services
             await this.databaseService.disconnect();
-            logger.info('✅ Database connections closed');
+            logger.info("✅ Database connections closed");
 
-            logger.info('✅ Graceful shutdown completed');
+            logger.info("✅ Graceful shutdown completed");
             process.exit(0);
           } catch (error) {
-            logger.error('❌ Error during cleanup:', error);
+            logger.error("❌ Error during cleanup:", error);
             process.exit(1);
           }
         });
 
         // Force shutdown after 30 seconds
         setTimeout(() => {
-          logger.error('⚠️  Forced shutdown after 30 seconds');
+          logger.error("⚠️  Forced shutdown after 30 seconds");
           process.exit(1);
         }, 30000);
       } else {
@@ -238,18 +313,18 @@ class AutoFlowServer {
     };
 
     // Handle different shutdown signals
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
     // Handle uncaught exceptions and unhandled rejections
-    process.on('uncaughtException', (error) => {
-      logger.error('🚨 Uncaught Exception:', error);
-      gracefulShutdown('uncaughtException');
+    process.on("uncaughtException", (error) => {
+      logger.error("🚨 Uncaught Exception:", error);
+      gracefulShutdown("uncaughtException");
     });
 
-    process.on('unhandledRejection', (reason, promise) => {
-      logger.error('🚨 Unhandled Rejection at promise:', { promise, reason });
-      gracefulShutdown('unhandledRejection');
+    process.on("unhandledRejection", (reason, promise) => {
+      logger.error("🚨 Unhandled Rejection at promise:", { promise, reason });
+      gracefulShutdown("unhandledRejection");
     });
   }
 
@@ -285,9 +360,9 @@ class AutoFlowServer {
  */
 if (require.main === module) {
   const server = new AutoFlowServer();
-  
+
   server.start().catch((error) => {
-    logger.error('💥 Fatal error starting server:', error);
+    logger.error("💥 Fatal error starting server:", error);
     process.exit(1);
   });
 }
