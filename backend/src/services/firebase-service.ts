@@ -49,6 +49,21 @@ class FirebaseService {
       // Get configuration from environment
       const config = getDatabaseConfig();
 
+      // Check if we're in development mode with dummy credentials
+      if (config.privateKey === 'demo-key-replace-with-real-key' || 
+          config.projectId === 'demo-project' ||
+          config.privateKey.includes('DEMO') ||
+          process.env.NODE_ENV === 'development' && config.privateKey.length < 100) {
+        
+        logger.warn('🚧 Running in DEVELOPMENT mode - Firebase disabled');
+        logger.warn('⚠️  Using mock Firebase service (database operations will be simulated)');
+        
+        // Set up mock services
+        this.initialized = true;
+        logger.info('✅ Mock Firebase service initialized for development');
+        return;
+      }
+
       // Check if Firebase app is already initialized
       if (getApps().length === 0) {
         // Create service account object

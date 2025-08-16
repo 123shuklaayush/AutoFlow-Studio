@@ -27,6 +27,19 @@ export class DatabaseService {
     }
 
     try {
+      // Check if Firebase is in mock mode
+      const config = require('../utils/environment').getDatabaseConfig();
+      const isMockMode = config.projectId === 'demo-project' || 
+                        config.privateKey.includes('DEMO') ||
+                        config.privateKey === 'demo-key-replace-with-real-key';
+
+      if (isMockMode) {
+        logger.warn('🚧 Database service running in MOCK mode');
+        this.initialized = true;
+        logger.info('✅ Mock database service initialized');
+        return;
+      }
+
       this.firestore = getFirestoreInstance();
       this.initialized = true;
       logger.info('✅ Database service initialized');
@@ -56,6 +69,13 @@ export class DatabaseService {
    */
   async create(collection: string, data: any, docId?: string): Promise<string> {
     try {
+      // Mock mode - return fake ID
+      if (!this.firestore) {
+        const mockId = docId || `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        logger.debug(`[MOCK] Document created in ${collection}:`, mockId);
+        return mockId;
+      }
+
       const db = this.getFirestore();
       const timestamp = new Date();
       
@@ -163,6 +183,25 @@ export class DatabaseService {
     where?: Array<{ field: string; operator: any; value: any }>;
   } = {}): Promise<any[]> {
     try {
+      // Mock mode - return sample data
+      if (!this.firestore) {
+        logger.debug(`[MOCK] Listing documents from ${collection}`);
+        return [
+          {
+            id: `mock_${collection}_1`,
+            name: `Sample ${collection} 1`,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: `mock_${collection}_2`, 
+            name: `Sample ${collection} 2`,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        ];
+      }
+
       const db = this.getFirestore();
       let query: any = db.collection(collection);
 
@@ -209,6 +248,12 @@ export class DatabaseService {
    */
   async count(collection: string, where?: Array<{ field: string; operator: any; value: any }>): Promise<number> {
     try {
+      // Mock mode - return sample count
+      if (!this.firestore) {
+        logger.debug(`[MOCK] Counting documents in ${collection}`);
+        return 2; // Mock count
+      }
+
       const db = this.getFirestore();
       let query: any = db.collection(collection);
 
