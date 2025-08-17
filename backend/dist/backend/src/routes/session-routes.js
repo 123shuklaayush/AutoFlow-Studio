@@ -14,14 +14,14 @@ const router = (0, express_1.Router)();
  * POST /api/sessions/steps
  * Save a trace step to the current recording session
  */
-router.post('/steps', async (req, res) => {
+router.post("/steps", async (req, res) => {
     try {
         const { sessionId, step, timestamp } = req.body;
         // Validate required fields
         if (!sessionId || !step) {
             res.status(400).json({
                 success: false,
-                error: 'Missing required fields: sessionId and step'
+                error: "Missing required fields: sessionId and step",
             });
             return;
         }
@@ -29,39 +29,56 @@ router.post('/steps', async (req, res) => {
         if (!step.id || !step.action || !step.url) {
             res.status(400).json({
                 success: false,
-                error: 'Invalid step structure: missing id, action, or url'
+                error: "Invalid step structure: missing id, action, or url",
             });
             return;
         }
         const dbService = (0, database_service_1.getDatabaseService)();
         // Get or create session
         let session;
-        try {
-            session = await dbService.read('sessions', sessionId);
+        const existingSession = (await dbService.read("sessions", sessionId));
+        if (existingSession) {
+            session = existingSession;
         }
-        catch (error) {
+        else {
             // Session doesn't exist, create new one
             session = {
                 id: sessionId,
                 startTime: timestamp || Date.now(),
                 stepCount: 0,
-                status: 'active',
+                status: "active",
                 metadata: {
                     initialUrl: step.url,
                     tabId: step.tabId,
+                    // Future-ready fields for multi-user support
+                    deviceId: req.get("X-Device-ID") || "anonymous",
+                    userAgent: req.get("User-Agent"),
+                    // userId: null, // Will be added when auth is implemented
                 },
                 steps: [],
                 lastUpdated: Date.now(),
+                // Future-ready fields
+                version: "1.0", // For schema migrations
+                tags: [], // For workflow organization
             };
             logger_1.logger.info(`Creating new session: ${sessionId}`);
+        }
+        // Ensure steps array exists (defensive programming)
+        if (!session.steps) {
+            session.steps = [];
         }
         // Add step to session
         session.steps.push(step);
         session.stepCount = session.steps.length;
         session.lastUpdated = Date.now();
-        session.metadata.userAgent = req.get('User-Agent');
-        // Save updated session to Firebase
-        await dbService.update('sessions', sessionId, session);
+        session.metadata.userAgent = req.get("User-Agent");
+        // Save session to Firebase (create if new, update if existing)
+        if (existingSession) {
+            await dbService.update("sessions", sessionId, session);
+        }
+        else {
+            await dbService.create("sessions", session, sessionId);
+        }
         // Also save individual step for easier querying
         const stepDoc = {
             sessionId: sessionId,
@@ -69,7 +86,7 @@ router.post('/steps', async (req, res) => {
             savedAt: Date.now(),
             ...step,
         };
-        await dbService.create('steps', stepDoc, step.id);
+        await dbService.create("steps", stepDoc, step.id);
         logger_1.logger.info(`Step saved: ${step.id} for session: ${sessionId}`);
         res.json({
             success: true,
@@ -80,10 +97,10 @@ router.post('/steps', async (req, res) => {
         });
     }
     catch (error) {
-        logger_1.logger.error('Error saving trace step:', error);
+        logger_1.logger.error("Error saving trace step:", error);
         res.status(500).json({
             success: false,
-            error: 'Failed to save trace step',
+            error: "Failed to save trace step",
             details: error.message,
         });
     }
@@ -92,22 +109,22 @@ router.post('/steps', async (req, res) => {
  * GET /api/sessions/:sessionId
  * Get session data and all steps
  */
-router.get('/:sessionId', async (req, res) => {
+router.get("/:sessionId", async (req, res) => {
     try {
         const { sessionId } = req.params;
         if (!sessionId) {
             res.status(400).json({
                 success: false,
-                error: 'Session ID is required'
+                error: "Session ID is required",
             });
             return;
         }
         const dbService = (0, database_service_1.getDatabaseService)();
-        const session = await dbService.read('sessions', sessionId);
+        const session = (await dbService.read("sessions", sessionId));
         if (!session) {
             res.status(404).json({
                 success: false,
-                error: 'Session not found'
+                error: "Session not found",
             });
             return;
         }
@@ -118,10 +135,10 @@ router.get('/:sessionId', async (req, res) => {
         });
     }
     catch (error) {
-        logger_1.logger.error('Error retrieving session:', error);
+        logger_1.logger.error("Error retrieving session:", error);
         res.status(500).json({
             success: false,
-            error: 'Failed to retrieve session',
+            error: "Failed to retrieve session",
             details: error.message,
         });
     }
@@ -130,16 +147,16 @@ router.get('/:sessionId', async (req, res) => {
  * GET /api/sessions
  * List all sessions (with pagination)
  */
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 10;
         const offset = parseInt(req.query.offset) || 0;
         const dbService = (0, database_service_1.getDatabaseService)();
-        const sessions = await dbService.list('sessions', {
+        const sessions = await dbService.list("sessions", {
             limit,
             offset,
-            orderBy: 'lastUpdated',
-            orderDirection: 'desc'
+            orderBy: "lastUpdated",
+            orderDirection: "desc",
         });
         logger_1.logger.info(`Retrieved ${sessions.length} sessions`);
         res.json({
@@ -153,10 +170,10 @@ router.get('/', async (req, res) => {
         });
     }
     catch (error) {
-        logger_1.logger.error('Error listing sessions:', error);
+        logger_1.logger.error("Error listing sessions:", error);
         res.status(500).json({
             success: false,
-            error: 'Failed to list sessions',
+            error: "Failed to list sessions",
             details: error.message,
         });
     }
@@ -165,48 +182,81 @@ router.get('/', async (req, res) => {
  * POST /api/sessions/:sessionId/complete
  * Mark session as completed
  */
-router.post('/:sessionId/complete', async (req, res) => {
+router.post("/:sessionId/complete", async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const { duration, stepCount } = req.body;
+        const { duration, stepCount, name, description, createWorkflow = false, } = req.body;
         if (!sessionId) {
             res.status(400).json({
                 success: false,
-                error: 'Session ID is required'
+                error: "Session ID is required",
             });
             return;
         }
         const dbService = (0, database_service_1.getDatabaseService)();
-        const session = await dbService.read('sessions', sessionId);
+        const session = (await dbService.read("sessions", sessionId));
         if (!session) {
             res.status(404).json({
                 success: false,
-                error: 'Session not found'
+                error: "Session not found",
             });
             return;
         }
         // Update session status
-        session.status = 'completed';
+        session.status = "completed";
         session.endTime = Date.now();
         session.lastUpdated = Date.now();
         if (stepCount !== undefined) {
             session.stepCount = stepCount;
         }
-        await dbService.update('sessions', sessionId, session);
+        // Add workflow metadata if provided
+        if (name)
+            session.metadata.workflowName = name;
+        if (description)
+            session.metadata.workflowDescription = description;
+        await dbService.update("sessions", sessionId, session);
+        let workflowId = null;
+        // Create workflow if requested (future-ready for workflow management)
+        if (createWorkflow && name) {
+            workflowId = `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const workflow = {
+                id: workflowId,
+                name: name,
+                description: description || "",
+                sourceSessionId: sessionId,
+                deviceId: session.metadata.deviceId || "anonymous",
+                // userId: session.metadata.userId, // Future: when auth is added
+                steps: session.steps,
+                stepCount: session.stepCount,
+                createdAt: Date.now(),
+                lastUsed: null,
+                usageCount: 0,
+                version: "1.0",
+                tags: session.tags || [],
+                metadata: {
+                    originalUrl: session.metadata.initialUrl,
+                    duration: session.endTime - session.startTime,
+                    browser: session.metadata.userAgent,
+                },
+            };
+            await dbService.create("workflows", workflow, workflowId);
+            logger_1.logger.info(`Workflow created: ${workflowId} from session: ${sessionId}`);
+        }
         logger_1.logger.info(`Session completed: ${sessionId} with ${session.stepCount} steps`);
         res.json({
             success: true,
             sessionId: sessionId,
-            status: 'completed',
+            workflowId: workflowId,
+            status: "completed",
             stepCount: session.stepCount,
             duration: session.endTime - session.startTime,
         });
     }
     catch (error) {
-        logger_1.logger.error('Error completing session:', error);
+        logger_1.logger.error("Error completing session:", error);
         res.status(500).json({
             success: false,
-            error: 'Failed to complete session',
+            error: "Failed to complete session",
             details: error.message,
         });
     }
@@ -215,37 +265,37 @@ router.post('/:sessionId/complete', async (req, res) => {
  * DELETE /api/sessions/:sessionId
  * Delete a session and all its steps
  */
-router.delete('/:sessionId', async (req, res) => {
+router.delete("/:sessionId", async (req, res) => {
     try {
         const { sessionId } = req.params;
         if (!sessionId) {
             res.status(400).json({
                 success: false,
-                error: 'Session ID is required'
+                error: "Session ID is required",
             });
             return;
         }
         const dbService = (0, database_service_1.getDatabaseService)();
         // Get session to check if it exists
-        const session = await dbService.read('sessions', sessionId);
+        const session = (await dbService.read("sessions", sessionId));
         if (!session) {
             res.status(404).json({
                 success: false,
-                error: 'Session not found'
+                error: "Session not found",
             });
             return;
         }
         // Delete all steps for this session
         for (const step of session.steps) {
             try {
-                await dbService.delete('steps', step.id);
+                await dbService.delete("steps", step.id);
             }
             catch (error) {
                 logger_1.logger.warn(`Failed to delete step ${step.id}:`, error);
             }
         }
         // Delete the session
-        await dbService.delete('sessions', sessionId);
+        await dbService.delete("sessions", sessionId);
         logger_1.logger.info(`Session deleted: ${sessionId} with ${session.stepCount} steps`);
         res.json({
             success: true,
@@ -254,10 +304,10 @@ router.delete('/:sessionId', async (req, res) => {
         });
     }
     catch (error) {
-        logger_1.logger.error('Error deleting session:', error);
+        logger_1.logger.error("Error deleting session:", error);
         res.status(500).json({
             success: false,
-            error: 'Failed to delete session',
+            error: "Failed to delete session",
             details: error.message,
         });
     }
@@ -266,23 +316,23 @@ router.delete('/:sessionId', async (req, res) => {
  * GET /api/sessions/:sessionId/export
  * Export session data in various formats
  */
-router.get('/:sessionId/export', async (req, res) => {
+router.get("/:sessionId/export", async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const format = req.query.format || 'json';
+        const format = req.query.format || "json";
         if (!sessionId) {
             res.status(400).json({
                 success: false,
-                error: 'Session ID is required'
+                error: "Session ID is required",
             });
             return;
         }
         const dbService = (0, database_service_1.getDatabaseService)();
-        const session = await dbService.read('sessions', sessionId);
+        const session = (await dbService.read("sessions", sessionId));
         if (!session) {
             res.status(404).json({
                 success: false,
-                error: 'Session not found'
+                error: "Session not found",
             });
             return;
         }
@@ -308,33 +358,35 @@ router.get('/:sessionId/export', async (req, res) => {
             exportedAt: Date.now(),
         };
         switch (format.toLowerCase()) {
-            case 'json':
-                res.setHeader('Content-Type', 'application/json');
-                res.setHeader('Content-Disposition', `attachment; filename="session_${sessionId}.json"`);
+            case "json":
+                res.setHeader("Content-Type", "application/json");
+                res.setHeader("Content-Disposition", `attachment; filename="session_${sessionId}.json"`);
                 res.json(exportData);
                 break;
-            case 'csv':
+            case "csv":
                 // Simple CSV export of steps
-                const csvHeaders = 'Index,Action,URL,Description,Timestamp\n';
-                const csvRows = exportData.steps.map(step => `${step.index},"${step.action}","${step.url}","${step.description || ''}","${new Date(step.timestamp).toISOString()}"`).join('\n');
-                res.setHeader('Content-Type', 'text/csv');
-                res.setHeader('Content-Disposition', `attachment; filename="session_${sessionId}.csv"`);
+                const csvHeaders = "Index,Action,URL,Description,Timestamp\n";
+                const csvRows = exportData.steps
+                    .map((step) => `${step.index},"${step.action}","${step.url}","${step.description || ""}","${new Date(step.timestamp).toISOString()}"`)
+                    .join("\n");
+                res.setHeader("Content-Type", "text/csv");
+                res.setHeader("Content-Disposition", `attachment; filename="session_${sessionId}.csv"`);
                 res.send(csvHeaders + csvRows);
                 break;
             default:
                 res.status(400).json({
                     success: false,
-                    error: 'Unsupported format. Use json or csv.'
+                    error: "Unsupported format. Use json or csv.",
                 });
                 return;
         }
         logger_1.logger.info(`Session exported: ${sessionId} as ${format}`);
     }
     catch (error) {
-        logger_1.logger.error('Error exporting session:', error);
+        logger_1.logger.error("Error exporting session:", error);
         res.status(500).json({
             success: false,
-            error: 'Failed to export session',
+            error: "Failed to export session",
             details: error.message,
         });
     }

@@ -31,11 +31,15 @@ export interface TraceStep {
     timestamp: number;
     /** Additional metadata for this step */
     metadata?: StepMetadata;
+    /** Input value for input actions */
+    inputValue?: string;
+    /** Wait time for wait actions (ms) */
+    waitTime?: number;
 }
 /**
  * Types of actions that can be recorded
  */
-export type ActionType = 'click' | 'input' | 'navigate' | 'scroll' | 'wait' | 'screenshot' | 'download' | 'upload' | 'conditional_checkpoint';
+export type ActionType = "click" | "input" | "navigate" | "navigation" | "scroll" | "wait" | "screenshot" | "download" | "upload" | "conditional_checkpoint";
 /**
  * Element selector with multiple strategies for robustness
  * @interface ElementSelector
@@ -75,11 +79,11 @@ export interface InputData {
 /**
  * Types of input data
  */
-export type InputType = 'text' | 'password' | 'email' | 'number' | 'date' | 'file' | 'select';
+export type InputType = "text" | "password" | "email" | "number" | "date" | "file" | "select";
 /**
  * Sources of data for automation
  */
-export type DataSource = 'static' | 'variable' | 'secret' | 'dynamic';
+export type DataSource = "static" | "variable" | "secret" | "dynamic";
 /**
  * Scroll position information
  * @interface ScrollPosition
@@ -91,6 +95,10 @@ export interface ScrollPosition {
     pageHeight?: number;
     /** Total page width at time of recording */
     pageWidth?: number;
+    /** Scroll percentage horizontally (0-100) */
+    percentX?: number;
+    /** Scroll percentage vertically (0-100) */
+    percentY?: number;
 }
 /**
  * Bounding box for element positioning
@@ -117,6 +125,8 @@ export interface StepMetadata {
     verification?: VerificationRule[];
     /** Retry configuration for this step */
     retryConfig?: RetryConfig;
+    /** Scroll direction for scroll events */
+    scrollDirection?: string;
 }
 /**
  * Verification rules for step validation
@@ -133,7 +143,7 @@ export interface VerificationRule {
 /**
  * Types of verification checks
  */
-export type VerificationType = 'url_contains' | 'element_visible' | 'element_text' | 'page_title' | 'download_complete' | 'network_response';
+export type VerificationType = "url_contains" | "element_visible" | "element_text" | "page_title" | "download_complete" | "network_response";
 /**
  * Retry configuration for failed steps
  * @interface RetryConfig
@@ -144,7 +154,7 @@ export interface RetryConfig {
     /** Delay between retry attempts (ms) */
     delay: number;
     /** Backoff strategy for retry delays */
-    backoffStrategy: 'linear' | 'exponential';
+    backoffStrategy: "linear" | "exponential";
     /** Conditions that should trigger a retry */
     retryConditions: string[];
 }
@@ -160,25 +170,41 @@ export interface Workflow {
     /** Workflow description */
     description?: string;
     /** User who created this workflow */
-    ownerId: string;
+    ownerId?: string;
     /** Recorded steps that make up this workflow */
     steps: TraceStep[];
     /** Variables used in this workflow */
-    variables: WorkflowVariable[];
+    variables?: WorkflowVariable[];
     /** Credentials required for this workflow */
-    credentials: CredentialReference[];
+    credentials?: CredentialReference[];
     /** Trigger configuration */
-    triggers: TriggerConfig[];
+    triggers?: TriggerConfig[];
     /** Workflow settings */
-    settings: WorkflowSettings;
+    settings?: WorkflowSettings;
     /** Creation timestamp */
     createdAt: number;
     /** Last modification timestamp */
-    updatedAt: number;
+    updatedAt?: number;
     /** Current version of the workflow */
     version: string;
     /** Tags for workflow organization */
     tags?: string[];
+    /** Number of steps in workflow */
+    stepCount: number;
+    /** Source session ID this workflow was created from */
+    sourceSessionId?: string;
+    /** Last time this workflow was used */
+    lastUsed?: number | null;
+    /** How many times this workflow has been executed */
+    usageCount?: number;
+    /** Device ID that created this workflow */
+    deviceId?: string;
+    /** Workflow metadata */
+    metadata?: {
+        originalUrl?: string;
+        duration?: number;
+        browser?: string;
+    };
 }
 /**
  * Variable definition for workflows
@@ -201,7 +227,7 @@ export interface WorkflowVariable {
 /**
  * Types of workflow variables
  */
-export type VariableType = 'string' | 'number' | 'boolean' | 'date' | 'email' | 'url' | 'file';
+export type VariableType = "string" | "number" | "boolean" | "date" | "email" | "url" | "file";
 /**
  * Reference to a credential needed by the workflow
  * @interface CredentialReference
@@ -221,7 +247,7 @@ export interface CredentialReference {
 /**
  * Types of credentials
  */
-export type CredentialType = 'username_password' | 'api_key' | 'oauth2' | 'custom';
+export type CredentialType = "username_password" | "api_key" | "oauth2" | "custom";
 /**
  * Trigger configuration for automated workflow execution
  * @interface TriggerConfig
@@ -239,7 +265,7 @@ export interface TriggerConfig {
 /**
  * Types of workflow triggers
  */
-export type TriggerType = 'manual' | 'schedule' | 'webhook' | 'email' | 'file_change';
+export type TriggerType = "manual" | "schedule" | "webhook" | "email" | "file_change";
 /**
  * Workflow execution settings
  * @interface WorkflowSettings
@@ -259,7 +285,7 @@ export interface WorkflowSettings {
 /**
  * Execution modes for workflows
  */
-export type ExecutionMode = 'visible' | 'headless' | 'debug';
+export type ExecutionMode = "visible" | "headless" | "debug";
 /**
  * Notification configuration
  * @interface NotificationSettings
@@ -275,13 +301,13 @@ export interface NotificationSettings {
 /**
  * Notification delivery channels
  */
-export type NotificationChannel = 'whatsapp' | 'email' | 'webhook' | 'browser';
+export type NotificationChannel = "whatsapp" | "email" | "webhook" | "browser";
 /**
  * Events that can trigger notifications
  */
-export type NotificationEvent = 'start' | 'success' | 'failure' | 'pause' | 'resume' | 'step_complete';
+export type NotificationEvent = "start" | "success" | "failure" | "pause" | "resume" | "step_complete";
 /**
  * Error handling strategies
  */
-export type ErrorHandlingStrategy = 'stop' | 'continue' | 'retry' | 'notify_and_stop' | 'notify_and_continue';
+export type ErrorHandlingStrategy = "stop" | "continue" | "retry" | "notify_and_stop" | "notify_and_continue";
 //# sourceMappingURL=core.d.ts.map

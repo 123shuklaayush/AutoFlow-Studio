@@ -3,7 +3,7 @@
  * @author Ayush Shukla
  * @description Central route setup following RESTful conventions and modular architecture
  */
-import { Application } from 'express';
+import { Application } from "express";
 /**
  * Set up all API routes for the application
  * Following RESTful conventions and API versioning

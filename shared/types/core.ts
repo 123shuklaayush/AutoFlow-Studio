@@ -32,6 +32,10 @@ export interface TraceStep {
   timestamp: number;
   /** Additional metadata for this step */
   metadata?: StepMetadata;
+  /** Input value for input actions */
+  inputValue?: string;
+  /** Wait time for wait actions (ms) */
+  waitTime?: number;
 }
 
 /**
@@ -41,6 +45,7 @@ export type ActionType =
   | "click"
   | "input"
   | "navigate"
+  | "navigation"
   | "scroll"
   | "wait"
   | "screenshot"
@@ -201,25 +206,41 @@ export interface Workflow {
   /** Workflow description */
   description?: string;
   /** User who created this workflow */
-  ownerId: string;
+  ownerId?: string;
   /** Recorded steps that make up this workflow */
   steps: TraceStep[];
   /** Variables used in this workflow */
-  variables: WorkflowVariable[];
+  variables?: WorkflowVariable[];
   /** Credentials required for this workflow */
-  credentials: CredentialReference[];
+  credentials?: CredentialReference[];
   /** Trigger configuration */
-  triggers: TriggerConfig[];
+  triggers?: TriggerConfig[];
   /** Workflow settings */
-  settings: WorkflowSettings;
+  settings?: WorkflowSettings;
   /** Creation timestamp */
   createdAt: number;
   /** Last modification timestamp */
-  updatedAt: number;
+  updatedAt?: number;
   /** Current version of the workflow */
   version: string;
   /** Tags for workflow organization */
   tags?: string[];
+  /** Number of steps in workflow */
+  stepCount: number;
+  /** Source session ID this workflow was created from */
+  sourceSessionId?: string;
+  /** Last time this workflow was used */
+  lastUsed?: number | null;
+  /** How many times this workflow has been executed */
+  usageCount?: number;
+  /** Device ID that created this workflow */
+  deviceId?: string;
+  /** Workflow metadata */
+  metadata?: {
+    originalUrl?: string;
+    duration?: number;
+    browser?: string;
+  };
 }
 
 /**

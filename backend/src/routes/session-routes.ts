@@ -35,9 +35,14 @@ interface SessionData {
     userAgent?: string;
     initialUrl?: string;
     tabId?: number;
+    deviceId?: string;
+    workflowName?: string;
+    workflowDescription?: string;
   };
   steps: TraceStep[];
   lastUpdated: number;
+  version?: string;
+  tags?: string[];
 }
 
 /**
