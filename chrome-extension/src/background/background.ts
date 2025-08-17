@@ -201,6 +201,12 @@ class AutoFlowBackground {
           .catch((error) => sendResponse({ error: error.message }));
         return true;
 
+      case "CLEAR_STORAGE":
+        this.clearAllStorage()
+          .then(() => sendResponse({ success: true }))
+          .catch((error) => sendResponse({ error: error.message }));
+        return true;
+
       default:
         console.warn(
           "AutoFlow Background: Unknown message type:",
@@ -432,6 +438,33 @@ class AutoFlowBackground {
   }
 
   /**
+   * Get or create a unique device ID for future user tracking
+   * @returns Promise resolving to device ID
+   * @private
+   */
+  private async getOrCreateDeviceId(): Promise<string> {
+    try {
+      const result = await chrome.storage.local.get(["autoflow-device-id"]);
+
+      if (result["autoflow-device-id"]) {
+        return result["autoflow-device-id"];
+      }
+
+      // Generate new device ID
+      const deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      await chrome.storage.local.set({ "autoflow-device-id": deviceId });
+
+      console.log("AutoFlow Background: Generated new device ID:", deviceId);
+      return deviceId;
+    } catch (error) {
+      console.error("AutoFlow Background: Error managing device ID:", error);
+      // Fallback to session-based ID
+      return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  }
+
+  /**
    * Save a trace step from content script
    * @param step - Trace step to save
    * @returns Promise resolving to save result
@@ -463,13 +496,15 @@ class AutoFlowBackground {
         );
       }
 
-      // Also save to local storage in batches as backup
-      if (this.state.currentSteps.length % 5 === 0) {
+      // Save only essential data to avoid storage quota issues
+      // Full steps are already saved to Firebase - only save metadata locally
+      if (this.state.currentSteps.length % 10 === 0) {
         await this.saveSessionData({
           sessionId: this.state.currentSessionId,
-          steps: [...this.state.currentSteps],
           stepCount: this.state.currentSteps.length,
           lastUpdated: Date.now(),
+          // Don't save full steps array to avoid quota exceeded
+          latestStepIds: this.state.currentSteps.slice(-5).map((s) => s.id),
         });
       }
 
@@ -490,12 +525,16 @@ class AutoFlowBackground {
    */
   private async saveStepToFirebase(step: TraceStep): Promise<void> {
     try {
+      // Generate or get device ID for future user tracking
+      const deviceId = await this.getOrCreateDeviceId();
+
       const response = await fetch(
         "http://localhost:3000/api/v1/sessions/steps",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "X-Device-ID": deviceId, // Future-ready for user tracking
           },
           body: JSON.stringify({
             sessionId: this.state.currentSessionId,
@@ -1072,13 +1111,16 @@ class AutoFlowBackground {
    */
   private async initializeStorage(): Promise<void> {
     try {
+      // Clean up old session data first to prevent quota issues
+      await this.cleanupOldSessions();
+
       const defaultData = {
         [this.STORAGE_KEYS.WORKFLOWS]: [],
         [this.STORAGE_KEYS.SESSIONS]: {},
         [this.STORAGE_KEYS.SETTINGS]: {
           captureScreenshots: true,
           autoSave: true,
-          maxStoredSessions: 10,
+          maxStoredSessions: 5, // Reduced from 10 to save space
         },
       };
 
@@ -1098,6 +1140,57 @@ class AutoFlowBackground {
       }
     } catch (error) {
       console.error("AutoFlow Background: Error initializing storage:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clean up old session data to prevent storage quota exceeded
+   * @private
+   */
+  private async cleanupOldSessions(): Promise<void> {
+    try {
+      const allData = await chrome.storage.local.get();
+      const sessionKeys = Object.keys(allData).filter((key) =>
+        key.startsWith("session_")
+      );
+
+      // Keep only the 5 most recent sessions
+      if (sessionKeys.length > 5) {
+        const sessionsWithTime = sessionKeys.map((key) => ({
+          key,
+          time: allData[key]?.lastUpdated || 0,
+        }));
+
+        // Sort by time and remove oldest
+        sessionsWithTime.sort((a, b) => b.time - a.time);
+        const keysToRemove = sessionsWithTime.slice(5).map((s) => s.key);
+
+        if (keysToRemove.length > 0) {
+          await chrome.storage.local.remove(keysToRemove);
+          console.log(
+            `AutoFlow Background: Cleaned up ${keysToRemove.length} old sessions`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("AutoFlow Background: Error cleaning up sessions:", error);
+    }
+  }
+
+  /**
+   * Clear all storage data (emergency cleanup for quota issues)
+   * @private
+   */
+  private async clearAllStorage(): Promise<void> {
+    try {
+      await chrome.storage.local.clear();
+      console.log("AutoFlow Background: All storage cleared");
+
+      // Reinitialize with defaults
+      await this.initializeStorage();
+    } catch (error) {
+      console.error("AutoFlow Background: Error clearing storage:", error);
       throw error;
     }
   }

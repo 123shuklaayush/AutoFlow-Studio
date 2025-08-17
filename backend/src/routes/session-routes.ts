@@ -70,9 +70,14 @@ router.post("/steps", async (req: Request, res: Response): Promise<void> => {
 
     // Get or create session
     let session: SessionData;
-    try {
-      session = (await dbService.read("sessions", sessionId)) as SessionData;
-    } catch (error) {
+    const existingSession = (await dbService.read(
+      "sessions",
+      sessionId
+    )) as SessionData;
+
+    if (existingSession) {
+      session = existingSession;
+    } else {
       // Session doesn't exist, create new one
       session = {
         id: sessionId,
@@ -82,12 +87,24 @@ router.post("/steps", async (req: Request, res: Response): Promise<void> => {
         metadata: {
           initialUrl: step.url,
           tabId: step.tabId,
+          // Future-ready fields for multi-user support
+          deviceId: req.get("X-Device-ID") || "anonymous",
+          userAgent: req.get("User-Agent"),
+          // userId: null, // Will be added when auth is implemented
         },
         steps: [],
         lastUpdated: Date.now(),
+        // Future-ready fields
+        version: "1.0", // For schema migrations
+        tags: [], // For workflow organization
       };
 
       logger.info(`Creating new session: ${sessionId}`);
+    }
+
+    // Ensure steps array exists (defensive programming)
+    if (!session.steps) {
+      session.steps = [];
     }
 
     // Add step to session
@@ -96,8 +113,12 @@ router.post("/steps", async (req: Request, res: Response): Promise<void> => {
     session.lastUpdated = Date.now();
     session.metadata.userAgent = req.get("User-Agent");
 
-    // Save updated session to Firebase
-    await dbService.update("sessions", sessionId, session);
+    // Save session to Firebase (create if new, update if existing)
+    if (existingSession) {
+      await dbService.update("sessions", sessionId, session);
+    } else {
+      await dbService.create("sessions", session, sessionId);
+    }
 
     // Also save individual step for easier querying
     const stepDoc = {
@@ -226,7 +247,13 @@ router.post(
   async (req: Request, res: Response): Promise<void> => {
     try {
       const { sessionId } = req.params;
-      const { duration, stepCount } = req.body;
+      const {
+        duration,
+        stepCount,
+        name,
+        description,
+        createWorkflow = false,
+      } = req.body;
 
       if (!sessionId) {
         res.status(400).json({
@@ -259,7 +286,44 @@ router.post(
         session.stepCount = stepCount;
       }
 
+      // Add workflow metadata if provided
+      if (name) session.metadata.workflowName = name;
+      if (description) session.metadata.workflowDescription = description;
+
       await dbService.update("sessions", sessionId, session);
+
+      let workflowId = null;
+
+      // Create workflow if requested (future-ready for workflow management)
+      if (createWorkflow && name) {
+        workflowId = `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        const workflow = {
+          id: workflowId,
+          name: name,
+          description: description || "",
+          sourceSessionId: sessionId,
+          deviceId: session.metadata.deviceId || "anonymous",
+          // userId: session.metadata.userId, // Future: when auth is added
+          steps: session.steps,
+          stepCount: session.stepCount,
+          createdAt: Date.now(),
+          lastUsed: null,
+          usageCount: 0,
+          version: "1.0",
+          tags: session.tags || [],
+          metadata: {
+            originalUrl: session.metadata.initialUrl,
+            duration: session.endTime - session.startTime,
+            browser: session.metadata.userAgent,
+          },
+        };
+
+        await dbService.create("workflows", workflow, workflowId);
+        logger.info(
+          `Workflow created: ${workflowId} from session: ${sessionId}`
+        );
+      }
 
       logger.info(
         `Session completed: ${sessionId} with ${session.stepCount} steps`
@@ -268,6 +332,7 @@ router.post(
       res.json({
         success: true,
         sessionId: sessionId,
+        workflowId: workflowId,
         status: "completed",
         stepCount: session.stepCount,
         duration: session.endTime - session.startTime,

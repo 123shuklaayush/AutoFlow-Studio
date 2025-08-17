@@ -65,13 +65,35 @@ class AutoFlowContentScript {
       this.handleNavigationEvent.bind(this)
     );
 
-    // Scroll events (throttled for performance)
+    // Scroll events (optimized throttling with distance threshold)
     let scrollTimeout: NodeJS.Timeout;
+    let lastScrollPosition = { x: window.scrollX, y: window.scrollY };
+    let lastScrollTime = 0;
+
     document.addEventListener(
       "scroll",
       () => {
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(this.handleScrollEvent.bind(this), 150);
+        const now = Date.now();
+        const currentPosition = { x: window.scrollX, y: window.scrollY };
+
+        // Calculate scroll distance
+        const scrollDistance = Math.sqrt(
+          Math.pow(currentPosition.x - lastScrollPosition.x, 2) +
+            Math.pow(currentPosition.y - lastScrollPosition.y, 2)
+        );
+
+        // Only record if significant scroll (>50px) or enough time passed (>100ms)
+        const significantScroll = scrollDistance > 50;
+        const enoughTimePassed = now - lastScrollTime > 100;
+
+        if (significantScroll || enoughTimePassed) {
+          clearTimeout(scrollTimeout);
+          scrollTimeout = setTimeout(() => {
+            this.handleScrollEvent.bind(this)();
+            lastScrollPosition = { x: window.scrollX, y: window.scrollY };
+            lastScrollTime = Date.now();
+          }, 50); // Reduced from 150ms to 50ms
+        }
       },
       { passive: true }
     );
@@ -338,6 +360,18 @@ class AutoFlowContentScript {
     if (!this.isRecording) return;
 
     try {
+      // Calculate scroll percentage for better context
+      const scrollPercentX =
+        Math.round(
+          (window.scrollX / (document.body.scrollWidth - window.innerWidth)) *
+            100
+        ) || 0;
+      const scrollPercentY =
+        Math.round(
+          (window.scrollY / (document.body.scrollHeight - window.innerHeight)) *
+            100
+        ) || 0;
+
       const scrollStep: TraceStep = {
         id: this.generateStepId(),
         tabId: await this.getCurrentTabId(),
@@ -349,18 +383,46 @@ class AutoFlowContentScript {
           y: window.scrollY,
           pageHeight: document.body.scrollHeight,
           pageWidth: document.body.scrollWidth,
+          percentX: scrollPercentX,
+          percentY: scrollPercentY,
         },
         timestamp: Date.now(),
         metadata: {
-          description: `Scrolled to position (${window.scrollX}, ${window.scrollY})`,
+          description: `Scrolled to ${scrollPercentY}% of page (${window.scrollX}, ${window.scrollY})`,
           tags: ["scroll"],
+          scrollDirection: this.getScrollDirection(),
         },
       };
 
       await this.saveTraceStep(scrollStep);
+
+      // Update visual feedback
+      this.updateStepCounter();
+
+      console.log("AutoFlow: Scroll recorded:", {
+        position: `(${window.scrollX}, ${window.scrollY})`,
+        percentage: `${scrollPercentY}%`,
+        step: this.stepCounter,
+      });
     } catch (error) {
       console.error("AutoFlow: Error recording scroll event:", error);
     }
+  }
+
+  /**
+   * Determine scroll direction for better context
+   * @private
+   */
+  private getScrollDirection(): string {
+    // This is a simple implementation - could be enhanced with velocity tracking
+    const scrollTop = window.scrollY;
+    const scrollLeft = window.scrollX;
+
+    if (scrollTop > 0 && scrollLeft === 0) return "down";
+    if (scrollTop === 0 && scrollLeft === 0) return "top";
+    if (scrollLeft > 0 && scrollTop === 0) return "right";
+    if (scrollLeft === 0 && scrollTop === 0) return "top-left";
+    return "diagonal";
   }
 
   /**

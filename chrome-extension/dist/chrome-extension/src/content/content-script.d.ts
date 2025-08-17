@@ -70,6 +70,11 @@ declare class AutoFlowContentScript {
      */
     private handleScrollEvent;
     /**
+     * Determine scroll direction for better context
+     * @private
+     */
+    private getScrollDirection;
+    /**
      * Handle form submission events
      * @param event - The submit event
      * @private
